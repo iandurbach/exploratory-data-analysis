@@ -1,0 +1,506 @@
+---
+title: "Clustering"
+author: Lecture XX
+output: ioslides_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height=3.5,
+                      tidy.opts=list(width.cutoff=60),
+                      tidy=TRUE, 
+                      warning = FALSE)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(stringr)
+library(imager)
+library(formatR)
+```
+
+```{r wrap-hook, echo=FALSE}
+library(knitr)
+hook_output = knit_hooks$get('output')
+knit_hooks$set(output = function(x, options) {
+  # this hook is used only when the linewidth option is not NULL
+  if (!is.null(n <- options$linewidth)) {
+    x = knitr:::split_lines(x)
+    # any lines wider than n should be wrapped
+    if (any(nchar(x) > n)) x = strwrap(x, width = n)
+    x = paste(x, collapse = '\n')
+  }
+  hook_output(x, options)
+})
+knitr::opts_chunk$set(linewidth=60)
+```
+
+## Clustering
+
+```{r}
+ratings <- readRDS(file = "data/movieratings.Rds")
+str(ratings)
+```
+
+```{r, echo = FALSE}
+# reshape long to wide
+ratings_wide <- ratings %>% 
+  dplyr::select(userId, title, rating) %>% 
+  pivot_wider(names_from = title, values_from = rating)
+```
+
+## Visualising the raw data
+
+```{r, echo = FALSE, fig.height=6}
+# visualize the raw data
+par(mai = c(2,.5,.5,.5))
+image(t(ratings_wide[,-1])[, (nrow(ratings_wide)-1):1], axes = F)
+axis(1, at = 0:29/29, names(ratings_wide)[-1], las = 3, cex.axis = 0.7)
+axis(2, at = 0:99/99, rownames(ratings_wide), cex.axis = 0.6)
+```
+
+## Heatmaps
+
+```{r, echo = FALSE, fig.height=6}
+heat <- heatmap(as.matrix((ratings_wide[,-1])), 
+        scale = "none", margins = c(12, 5))
+```
+
+## Manual heatmaps with `image`
+
+```{r,eval=FALSE}
+# heatmap
+heat <- heatmap(as.matrix((ratings_wide[,-1])), 
+        scale = "none", margins = c(12, 5))
+row_ordering <- heat$rowInd
+col_ordering <- heat$colInd
+# reshape long to wide
+ratings_wide <- ratings %>% 
+  dplyr::select(userId, title, rating) %>% 
+  pivot_wider(names_from = title, values_from = rating)
+# image wants a matrix of ratings
+ratings_mat <- as.matrix(ratings_wide[,-1])
+```
+
+```{r,echo=FALSE}
+# heatmap
+row_ordering <- heat$rowInd
+col_ordering <- heat$colInd
+# reshape long to wide
+ratings_wide <- ratings %>% 
+  dplyr::select(userId, title, rating) %>% 
+  pivot_wider(names_from = title, values_from = rating)
+# image wants a matrix of ratings
+ratings_mat <- as.matrix(ratings_wide[,-1])
+```
+
+--- 
+
+```{r, fig.height=6}
+image(t(ratings_mat[row_ordering, col_ordering]))
+```
+
+# How does it cluster?
+
+## Hierarchical clustering with `hclust`
+
+```{r, fig.height=4.5}
+# single linkage
+hcl_single <- dist(ratings_wide[,-1]) %>% hclust(method = "single")
+plot(hcl_single)
+
+```
+
+---
+
+```{r, fig.height=4.5}
+# complete linkage
+hcl_complete <- dist(ratings_wide[,-1]) %>% hclust(method = "complete")
+plot(hcl_complete)
+```
+
+---
+```{r, fig.height=4.5}
+# centroid linkage
+hcl_centroid <- dist(ratings_wide[,-1]) %>% hclust(method = "centroid")
+plot(hcl_centroid)
+```
+
+
+## Where to cut?
+
+```{r, echo=FALSE, fig.height=4.5}
+plot(hcl_complete)
+```
+
+## Allocate each row to a cluster
+
+```{r}
+user_clusters <- cutree(hcl_complete, h = 9)
+ratings_wide <- ratings_wide %>% mutate(user_clusters = user_clusters)
+table(ratings_wide$user_clusters)
+```
+
+```{r, echo=FALSE}
+# for later
+user_clusters_df <- data.frame(userId = ratings_wide$userId, 
+                               user_clus = user_clusters, row.names = NULL)
+```
+
+## Review clusters
+
+```{r, echo = FALSE, fig.height=4.5}
+# plot mean movie ratings within each cluster
+cluster_means <- ratings_wide %>% 
+  group_by(user_clusters) %>%
+  summarise_at(vars(-starts_with("user")), mean, na.rm = TRUE) %>% 
+  ungroup()
+
+cluster_means %>% mutate(user_clusters = factor(user_clusters)) %>%
+  pivot_longer(cols = -1, names_to = "title", values_to = "rating") %>%
+  ggplot(aes(x = title, y = rating, colour = user_clusters, group = user_clusters)) + 
+  geom_line() + coord_flip() + xlab(element_blank()) + ylab(element_blank())
+```
+
+---
+
+```{r, echo = FALSE, fig.height=4.5}
+cluster_means %>% mutate(user_clusters = factor(user_clusters)) %>%
+  pivot_longer(cols = -1, names_to = "title", values_to = "rating") %>%
+  ggplot(aes(x = title, y = rating, colour = user_clusters, group = user_clusters)) +
+  facet_grid(. ~ user_clusters) +
+  geom_line() + coord_flip() + xlab(element_blank()) + ylab(element_blank())
+```
+
+## Redo heatmap after grouping users into clusters
+
+```{r, echo=FALSE, fig.height=4.5}
+ratings_userclus <- ratings_wide %>% 
+  dplyr::select(-userId) %>% group_by(user_clusters) %>%
+  summarise_all(mean, na.rm = TRUE) 
+heatmap(as.matrix((ratings_userclus[,-1])), scale = "none", margins = c(12, 5))
+
+```
+
+## ... or keep users separate but reorder
+
+```{r, echo=FALSE, fig.height=6}
+hcl_row_ordering <- hcl_complete$order
+par(mfrow = c(1,2))
+image(t(as.matrix(ratings_mat)), main = "Original Matrix")
+image(t(ratings_mat[hcl_row_ordering, ncol(ratings_mat):1]), main = "Reordered rows")
+```
+
+# Clustering movies 
+
+## Transpose and repeat...
+
+```{r}
+# transpose and leave out Id and cluster memb columns
+ratings_wide_t <- t(ratings_wide[,-c(1,32)]) %>% as.data.frame()
+# column names should be userId's
+names(ratings_wide_t) <- ratings_wide$userId
+# complete linkage again (or try others)
+hcl_complete <- dist(ratings_wide_t) %>% hclust(method = "complete")
+```
+
+---
+
+```{r, echo=FALSE,fig.height=6}
+plot(hcl_complete)
+```
+
+## Allocate movies to clusters
+
+```{r}
+title_clusters <- cutree(hcl_complete, k = 6)
+table(title_clusters)
+```
+
+```{r, echo=FALSE}
+# for later
+title_clusters_df <- data.frame(title = names(title_clusters), title_clus = title_clusters, row.names = NULL)
+```
+
+---
+
+```{r, linewidth=60}
+# movies in cluster 1
+str_c(title_clusters_df[title_clusters_df$title_clus == 1, "title"], collapse = "; ")
+# movies in cluster 2
+str_c(title_clusters_df[title_clusters_df$title_clus == 2, "title"], collapse = "; ")
+```
+
+## Review clusters
+
+```{r, echo=FALSE, fig.height=5}
+ratings_wide_t <- ratings_wide_t %>% mutate(title_clusters = title_clusters)
+
+ratings_titleclus <- ratings_wide_t %>% group_by(title_clusters) %>%
+  summarise_all(mean, na.rm = TRUE) 
+
+# plot mean movie ratings within each cluster
+cluster_means <- ratings_wide_t %>% 
+  group_by(title_clusters) %>%
+  summarise_all(mean, na.rm = TRUE) %>% 
+  ungroup()
+
+cluster_means %>% mutate(title_clusters = factor(title_clusters)) %>%
+  pivot_longer(cols = -1, names_to = "user", values_to = "rating") %>%
+  ggplot(aes(x = user, y = rating, colour = title_clusters, group = title_clusters)) + 
+  geom_line() + coord_flip() + xlab(element_blank()) + ylab(element_blank())
+
+```
+
+---
+
+```{r, echo=FALSE, fig.height=6}
+cluster_means %>% mutate(title_clusters = factor(title_clusters)) %>%
+  pivot_longer(cols = -1, names_to = "user", values_to = "rating") %>%
+  ggplot(aes(x = user, y = rating, colour = title_clusters, group = title_clusters)) + 
+  geom_line() + coord_flip() + xlab(element_blank()) + ylab(element_blank()) +
+  facet_grid(. ~ title_clusters)
+```
+
+## Heatmap with movie clusters
+
+```{r, echo=FALSE, fig.height=4.5}
+heatmap(as.matrix((ratings_titleclus[,-1])), scale = "none", margins = c(12, 5))
+```
+
+## ... or just reordering movies
+
+```{r, echo=FALSE, fig.height=6}
+hcl_col_ordering <- hcl_complete$order
+par(mfrow = c(1,2))
+image(t(as.matrix(ratings_mat)), main = "Original Matrix")
+image(t(ratings_mat[nrow(ratings_mat):1, col_ordering]), main = "Reordered columns")
+```
+
+# Putting it all together
+
+---
+
+```{r, echo=FALSE}
+par(mfrow = c(1,4))
+image(t(as.matrix(ratings_mat)), main = "Original Matrix")
+image(t(ratings_mat[hcl_row_ordering, ncol(ratings_mat):1]), main = "Reordered rows")
+image(t(ratings_mat[nrow(ratings_mat):1, hcl_col_ordering]), main = "Reordered columns")
+image(t(ratings_mat[hcl_row_ordering, hcl_col_ordering]), main = "Reordered both")
+```
+
+## World's smallest heatmap
+
+```{r, echo=FALSE,fig.height=4.5}
+# merge in cluster memberships for users and movies
+ratings <- ratings %>% 
+  left_join(user_clusters_df, by = "userId") %>% 
+  left_join(title_clusters_df, by = "title")
+
+# summarize
+ratings_bothclus <- ratings %>% 
+  group_by(title_clus, user_clus) %>%
+  summarize(rating = mean(rating, na.rm = TRUE)) %>% 
+  ungroup() %>% 
+  pivot_wider(names_from = title_clus, values_from = rating)
+
+heatmap(as.matrix((ratings_bothclus[,-1])), scale = "none", margins = c(5, 5))
+```
+
+# k-means clustering
+
+---
+
+```{r}
+df <- ratings_wide %>% dplyr::select_at(vars(-starts_with("user")))
+kmeansObj <- kmeans(df, centers = 6)
+```
+```{r}
+names(kmeansObj)
+```
+
+--- 
+
+```{r}
+kmeansObj$cluster
+```
+
+```{r}
+kmeansObj$centers[,1:3]
+```
+
+## Plotting cluster means
+
+```{r}
+# tidy for ggplot
+kmm <- kmeansObj$centers %>% as.data.frame() %>% 
+  mutate(user_clus_km = paste0("clust",1:6)) %>%
+  pivot_longer(-user_clus_km, names_to = "title", values_to = "rating") 
+head(kmm)
+```
+
+---
+
+```{r, echo=FALSE}
+kmm %>%
+  ggplot(aes(x = title, y = rating, colour = user_clus_km, group = user_clus_km)) + 
+  geom_line() + coord_flip() + xlab(element_blank()) + ylab(element_blank())
+```
+
+## similarity between `hclust` and `kmeans`
+
+```{r}
+table(user_clusters, kmeansObj$cluster)
+```
+
+# Dimension reduction
+
+## Dimension reduction = clustering for variables
+
+```{r}
+# don't need to reorder rows and cols, but will make visualizing PCA easier
+ratings_scaled_ordered <- scale(ratings_mat)[hcl_row_ordering, hcl_col_ordering]
+
+# do the svd
+svd1 <- svd(ratings_scaled_ordered)
+
+# rename svd outputs
+u <- svd1$u
+v <- svd1$v
+d <- diag(svd1$d)
+
+# approximate original data with outer product of first singular vector
+approx1 <- u[,1] %*% matrix(d[1,1],nrow=1) %*% t(v[,1])
+```
+
+---
+
+```{r,echo=FALSE,fig.height=6}
+par(mfrow = c(1, 2))
+image(t(ratings_scaled_ordered[100:1,]), main = "Original Matrix")
+image(t(approx1)[, nrow(approx1):1], main = "Approximation (1 SV)")
+```
+
+---
+
+```{r}
+approx2 <- u[,1:2] %*% d[1:2,1:2] %*% t(v[,1:2])
+approx5 <- u[,1:5] %*% d[1:5,1:5] %*% t(v[,1:5])
+approx30 <- u %*% d %*% t(v)
+```
+
+---
+
+```{r,echo=FALSE,fig.height=6}
+par(mfrow = c(1, 5))
+image(t(ratings_scaled_ordered[100:1,]), main = "Original Matrix")
+image(t(approx1)[, nrow(approx1):1], main = "Approximation (1 SV)")
+image(t(approx2)[, nrow(approx2):1], main = "Approximation (2 SV)")
+image(t(approx5)[, nrow(approx5):1], main = "Approximation (5 SV)")
+image(t(approx30)[, nrow(approx30):1], main = "Approximation (30 SV)")
+```
+ 
+## How many vectors are needed?
+
+```{r, echo=FALSE, fig.height=6}
+par(mfrow=c(1,3))
+plot(svd1$d, xlab = "Column", ylab = "Singular value", pch = 19)
+plot(svd1$d / sum(svd1$d), xlab = "Column", ylab = "% variance explained", pch = 19)
+plot(cumsum(svd1$d) / sum(svd1$d), xlab = "Column", ylab = "Cumulative % variance explained", pch = 19)
+
+```
+
+## SVD vs PCA
+
+PCs are equal to the right SVs if you scale the data to have mean 0 and sd 1
+
+---
+
+```{r, fig.height=4}
+ratings_ordered <- ratings_mat[hcl_row_ordering, hcl_col_ordering]
+pca1 <- prcomp(ratings_ordered, scale = TRUE)
+plot(pca1$rotation[, 1], svd1$v[, 1])
+```
+
+---
+
+```{r, echo=FALSE, fig.height=5}
+par(mfrow = c(1,2))
+plot(svd1$d, xlab = "Column", pch = 19)
+plot(pca1$sdev, xlab = "Column", pch = 19)
+```
+
+# Image compression with PCA
+---
+
+```{r, echo=FALSE}
+mona <- load.image("data/lowres_mona.png")
+plot(mona)
+```
+
+---
+
+```{r}
+# transform into matrix form
+mona_mat <- as.data.frame(mona) %>% 
+  pivot_wider(names_from = y, values_from = value) %>%
+  dplyr::select(-x) %>%
+  as.matrix()
+image(mona_mat[, nrow(mona_mat):1], col = gray.colors(100))
+```
+
+---
+
+```{r}
+# svd
+svd1 <- svd(mona_mat)
+u <- svd1$u; v <- svd1$v; d <- diag(svd1$d)
+
+# number of singular values
+nsv <- 1
+# approximate original data with outer product of first N singular vectors
+approx <- u[,1:nsv] %*% matrix(d[1:nsv,1:nsv],nrow=nsv) %*% t(v[,1:nsv])
+```
+
+## With 1 SV
+
+```{r, echo=FALSE,fig.height=5}
+image(approx[, nrow(approx):1], col = gray.colors(30))
+```
+
+## With 2 SV
+
+```{r, echo=FALSE,fig.height=5}
+nsv <- 2
+approx <- u[,1:nsv] %*% matrix(d[1:nsv,1:nsv],nrow=nsv) %*% t(v[,1:nsv])
+image(approx[, nrow(approx):1], col = gray.colors(30))
+```
+
+## With 5 SV
+
+```{r, echo=FALSE,fig.height=5}
+nsv <- 5
+approx <- u[,1:nsv] %*% matrix(d[1:nsv,1:nsv],nrow=nsv) %*% t(v[,1:nsv])
+image(approx[, nrow(approx):1], col = gray.colors(30))
+```
+
+## With 20 SV
+
+```{r, echo=FALSE,fig.height=5}
+nsv <- 20
+approx <- u[,1:nsv] %*% matrix(d[1:nsv,1:nsv],nrow=nsv) %*% t(v[,1:nsv])
+image(approx[, nrow(approx):1], col = gray.colors(30))
+```
+
+## With 50 SV
+
+```{r, echo=FALSE,fig.height=5}
+nsv <- 50
+approx <- u[,1:nsv] %*% matrix(d[1:nsv,1:nsv],nrow=nsv) %*% t(v[,1:nsv])
+image(approx[, nrow(approx):1], col = gray.colors(30))
+```
+
+## How many SVs is enough?
+
+```{r, echo=FALSE,fig.height=5}
+plot(svd1$d / sum(svd1$d), xlab = "Column", ylab = "% variance explained", pch = 19)
+```
+
