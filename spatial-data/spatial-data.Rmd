@@ -1,30 +1,43 @@
 ---
 title: "Exploring spatial data"
-author: Lecture XX
+author: Lecture 13-14
 output: ioslides_presentation
 ---
 
 
 ```{r, include = FALSE}
-knitr::opts_chunk$set(fig.height=3.5) 
+knitr::opts_chunk$set(fig.height=3.5,
+                      fig.align='center',
+                      tidy.opts=list(width.cutoff=60),
+                      tidy=TRUE, 
+                      warning = FALSE,
+                      message=FALSE) 
 library(dplyr)
 library(ggplot2)
 library(sf)
+library(raster)
 library(leaflet)
 library(stringr)
 library(tmap)
-library(mgcv)
-## get occupancy results
-occupancies <- st_read("data/Mongolia_SL_Occ.shp")
-occupancies %>% st_crs()
-occupancies <- occupancies %>% st_set_crs("+proj=utm +zone=48 +datum=WGS84 +units=m +no_defs")
+library(spData)
+library(spDataLarge)
+library(knitr)
+```
 
-###### generate camera trap locations from a lat-long file 
-
-## get camera locations
-cams <- read.csv("data/camera-locations.csv")
-cams <- st_as_sf(cams, coords = c("Longitude", "Latitude"), crs = 4326) %>% 
-  st_transform(crs = "+proj=utm +zone=48 +datum=WGS84 +units=m +no_defs")
+```{r wrap-hook, echo=FALSE}
+# text wrapping for nice slides
+hook_output = knit_hooks$get('output')
+knit_hooks$set(output = function(x, options) {
+  # this hook is used only when the linewidth option is not NULL
+  if (!is.null(n <- options$linewidth)) {
+    x = knitr:::split_lines(x)
+    # any lines wider than n should be wrapped
+    if (any(nchar(x) > n)) x = strwrap(x, width = n)
+    x = paste(x, collapse = '\n')
+  }
+  hook_output(x, options)
+})
+knitr::opts_chunk$set(linewidth=60)
 ```
 
 # Introducing spatial data
@@ -32,29 +45,55 @@ cams <- st_as_sf(cams, coords = c("Longitude", "Latitude"), crs = 4326) %>%
 ## Spatial data types
 
 - Vector data
-  + represents space using points, lines and polygons ("features")
-  + each of these can have additional data ("attributes")
-  + R package `sf`
++ represents space using points, lines and polygons ("features")
++ each of these can have additional data ("attributes")
++ R package `sf`
 <br><br>
 - Raster data
-  + represents space using cells of equal size
-  + each cell can have additional data ("layers")
-  + R package `raster`
++ represents space using cells of equal size
++ each cell can have additional data ("layers")
++ R package `raster`
 
 ## Vector data
 
+```{r, echo = FALSE, fig.height=5}
+rsa_towns <- st_read("data/rsa_towns.shp", quiet = TRUE)
+plot(st_geometry(rsa_towns))
+```
+
+## Vector data
+
+```{r, echo = FALSE, fig.height=5}
+plot(nz["Median_income"])
+```
+
 ## Raster data
+
+```{r, echo = FALSE, fig.height=5}
+mydata <- expand.grid(x = 1:10, y = 1:10) %>% 
+  mutate(z1 = x + y, 
+         z2 = (x-mean(x))^2 + (y-mean(y))^2)
+
+myraster <- rasterFromXYZ(mydata)
+plot(myraster[["z2"]])
+```
+
+## Raster data
+
+```{r, echo = FALSE, fig.height=5}
+plot(elevation)
+```
 
 # Simple features
 
 ## What is a feature?
 
 - A **feature** is a thing... a city, a house, a tree
-  + has a **geometry** describing where it is located
-  + has **attributes** describing its other properties
++ has a **geometry** describing where it is located
++ has **attributes** describing its other properties
 <br><br>
 - A feature may be made up of other features
-  + pixel vs. image
++ pixel vs. image
 
 ## What are simple features?
 
@@ -63,9 +102,9 @@ cams <- st_as_sf(cams, coords = c("Longitude", "Latitude"), crs = 4326) %>%
 - points, lines and polygons = "geometries"
 <br><br>
 - geometries are hierarchical
-  + set of points is a line
-  + set of lines forms a polygon
-  + several polygons is a multipolygon
++ set of points is a line
++ set of lines forms a polygon
++ several polygons is a multipolygon
 <br><br>
 - 17 geometries, of which we look at 7
 <br><br>
@@ -142,7 +181,7 @@ box()
 ```{r}
 # MULTILINESTRING
 mll <- list(rbind(c(1, 5), c(4, 4), c(4, 1), c(2, 2)), 
-           rbind(c(1, 2), c(2, 4)))
+            rbind(c(1, 2), c(2, 4)))
 (mls1 <- st_multilinestring((mll)))
 ```
 
@@ -157,7 +196,7 @@ box()
 ```{r}
 # MULTIPOLYGON
 mpyl <- list(list(rbind(c(1, 5), c(2, 2), c(4, 1), c(1, 5))),
-            list(rbind(c(0, 2), c(1, 2), c(1, 3), c(0, 3), c(0, 2))))
+             list(rbind(c(0, 2), c(1, 2), c(1, 3), c(0, 3), c(0, 2))))
 (mpoly1 <- st_multipolygon(mpyl))
 ```
 
@@ -220,254 +259,421 @@ st_geometry_type(points_sfc)
 - to these we add non-geographic attributes associated with each feature
 <br><br>
 - an `sf` object is a data frame combines these two things:
-  + attributes are stored in a regular data.frame
-  + location information (co-ordinates) is stored in one (simple feature geometry) column (`sfc`) of this data frame
++ attributes are stored in a regular data.frame
++ location information (co-ordinates) is stored in one (simple feature geometry) column (`sfc`) of this data frame
 <br><br>
 - Simple features = data frames with spatial attributes stored in a list-column
 
 ---
 
 ```{r}
-lnd_point = st_point(c(0.1, 51.5))                 # sfg object
-lnd_geom = st_sfc(lnd_point, crs = 4326)           # sfc object
-lnd_attrib = data.frame(                           # data.frame object
+lnd_point <- st_point(c(0.1, 51.5))                 # sfg object
+lnd_geom <- st_sfc(lnd_point, crs = 4326)           # sfc object
+lnd_attrib <- data.frame(                           # data.frame object
   name = "London",
   temperature = 25,
   date = as.Date("2017-06-21")
-  )
-lnd_sf = st_sf(lnd_attrib, geometry = lnd_geom)    # sf object
+)
+lnd_sf <- st_sf(lnd_attrib, geometry = lnd_geom)    # sf object
 lnd_sf
 ```
 
-# Coordinate reference systems
+# Coordinate reference systems (CRS)
+
+## CRSs and projections
+
++ Longitude and latitude identify locations on the Earth's surface using two angles
+<br><br>
++ Angles depend on the choice of the Earth's shape (sphere, ellipse)
+<br><br>
++ The shape is one part of a "coordinate reference system": the *datum* 
+
+## CRSs and projections
+
++ Lat-Long coordinates aren't "Cartesian" so Euclidean distances don't work
+<br><br>
++ To put points onto a flat surface we use a *projection*
+<br><br>
++ Projections can't perfectly reproduce all aspects of the Earth's surface, because its not a perfect sphere or ellipsoid. 
+<br><br>
++ Different projections preserve different properties, and are optimized for different regions of the Earth's surface
+<br><br>
++ The projection is another part of the CRS
+
+## CRSs in R
+
+Let's look at the CRS for the object we just created
+
+```{r}
+st_crs(lnd_sf)
+```
+
+CRS's can be specified using
++ an `epsg` code
++ a `proj4string` definition
+
+## CRSs in R
+
++ The `epsg` code refers to one well-defined coordinate reference system
+<br><br>
++ For e.g., "4326" is standard lat-long
+<br><br>
++ `proj4string` has various options and gives more flexibility
+
+## CRSs in R
+
+Read in a lat-long dataset
+
+```{r}
+x_ll <- read.csv("data/confirmed-sightings.csv")
+x_ll <- st_as_sf(x_ll, coords = c("Longitude", "Latitude"), crs = 4326)
+st_crs(x_ll)
+d_ll <- st_distance(x_ll[1,], x_ll[2,])
+```
 
 ## Reprojecting 
+
+```{r, tidy = FALSE}
+x_utm <- st_transform(x_ll, 
+                      crs = "+proj=utm +zone=48 +datum=WGS84 +units=m +no_defs")
+st_crs(x_utm)
+```
+
+```{r}
+d_utm <- st_distance(x_utm[1,], x_utm[2,])
+c(d_ll, d_utm)
+```
 
 # Reading in spatial data
 
 ## From a shape file
 
 ```{r}
-occupancies <- st_read("data/Mongolia_SL_Occ.shp")
+occupancies <- st_read("data/Mongolia_SL.shp", quiet = TRUE)
+head(occupancies)
+```
+
+---
+
+```{r}
+plot(st_geometry(occupancies))
+```
+
+---
+
+```{r}
+plot(occupancies["Team"])
+```
+
+---
+
+```{r}
+plot(occupancies["Occ"])
+```
+
+---
+
+```{r}
 occupancies %>% st_crs()     # check the CRS
 ```
 
 ```{r}
-occupancies <- occupancies %>% st_set_crs("+proj=utm +zone=48 +datum=WGS84 +units=m +no_defs")
+occupancies <- st_read("data/Mongolia_SL.shp", quiet = TRUE) %>% 
+  st_set_crs("+proj=utm +zone=48 +datum=WGS84 +units=m +no_defs")
 occupancies %>% st_crs()     
 ```
 
 ## From a spreadsheet or non-spatial data frame
 
 ```{r}
-# g
-cams <- read.csv("data/camera-locations.csv")
-cams <- st_as_sf(cams, coords = c("Longitude", "Latitude"), crs = 4326)
-cams %>% st_crs()
+sights <- read.csv("data/confirmed-sightings.csv")
+sights <- st_as_sf(sights, coords = c("Longitude", "Latitude"), crs = 4326)
+sights %>% st_crs()
 ```
+
+```{r, tidy = FALSE}
+# reprojecting
+my_crs <- "+proj=utm +zone=48 +datum=WGS84 +units=m +no_defs"
+sights <-  st_transform(sights, crs = my_crs)
+```
+
+---
 
 ```{r}
-# reprojecting
-cams <- cams %>% 
-  st_transform(crs = "+proj=utm +zone=48 +datum=WGS84 +units=m +no_defs")
+plot(sights["Elevation"])
 ```
 
 
+## Raster from file 
 
-<!-- # Static maps -->
+```{r}
+raster_filepath <- system.file("raster/srtm.tif", package = "spDataLarge")
+new_raster <- raster(raster_filepath)
+plot(new_raster)
+```
 
-<!-- ## tmap -->
+## Raster from data frame
 
-<!-- - similar syntax to ggplot2, tailored to maps -->
-<!-- - shape is a spatial object with class `sf`, `sp` or `raster`.  -->
-<!-- ```{r, fig.height = 2.5} -->
-<!-- map0 <- tm_shape(occupancies) + tm_fill()  -->
-<!-- map1 <- tm_shape(occupancies) + tm_borders()  -->
-<!-- tmap_arrange(map0, map1, nrow = 1) -->
-<!-- ``` -->
+```{r, tidy=FALSE}
+mydata <- expand.grid(x = 1:100, y = 1:100) %>% 
+  mutate(z1 = x + y, z2 = x - y)
+myraster <- rasterFromXYZ(mydata)
+plot(myraster[["z2"]])
+```
 
-<!-- --- -->
+## Raster from scratch
 
-<!-- ```{r} -->
-<!-- map2 <- tm_shape(occupancies) + tm_polygons()  -->
-<!-- map3 <- tm_shape(occupancies) + tm_polygons("Occ_1200")  -->
-<!-- tmap_arrange(map2, map3, nrow = 1) -->
-<!-- ``` -->
+```{r}
+raster1 <- raster(nrows = 10, ncols = 10, res = 1, 
+                 xmn = 0, xmx = 10, ymn = 0, ymx = 10,
+                 vals = 1:100)
+plot(raster1)
+```
 
-<!-- --- -->
+## Multiple layer rasters
 
-<!-- - Multiple layers per shape  -->
-<!-- ```{r} -->
-<!-- tm_shape(occupancies) +  -->
-<!--   tm_polygons("Occ_1200") +  -->
-<!--   tm_text("Team", size = 0.4) -->
-<!-- ``` -->
+```{r}
+raster2 <- raster(nrows = 10, ncols = 10, res = 1, 
+                 xmn = 0, xmx = 10, ymn = 0, ymx = 10,
+                 vals = runif(100))
+myrb <- brick(raster1, raster2)
+plot(myrb)
+```
 
-<!-- --- -->
+# Manipulating spatial data
 
-<!-- - Multiple shapes -->
-<!-- ```{r, fig.cap="Color settings are especially important for maps. Here use of the same palette obscures detail."} -->
-<!-- tm_shape(occupancies) + tm_polygons("Occ_1200") + -->
-<!--   tm_shape(cams) + tm_dots("Elevation", size = 0.5) -->
-<!-- ``` -->
+## Filter
 
-<!-- --- -->
+`dplyr` verbs work with `sf` objects in intuitive ways
 
-<!-- - Sequential palettes are good for values that have natural ordering from low to high -->
-<!-- ```{r, echo=TRUE} -->
-<!-- tm_shape(occupancies) + tm_polygons("Occ_1200") +  -->
-<!--   tm_shape(cams) + tm_dots("Elevation", size = 0.5, palette = "BuGn") -->
-<!-- ``` -->
+```{r}
+occ_gt90 <- occupancies %>% filter(Occ > 0.6)
+plot(occ_gt90)
+```
 
-<!-- --- -->
+## Select polygons with a sighting
 
-<!-- - Categorical palettes are best for data with no natural ordering -->
-<!-- ```{r, echo=TRUE} -->
-<!-- tm_shape(occupancies) + tm_polygons("Occ_1200") +  -->
-<!--   tm_shape(cams) + tm_dots("Mountain", size = 0.5, palette = "Set3") -->
-<!-- ``` -->
+Some specialised spatial functions like `st_intersects`
 
-<!-- --- -->
+```{r}
+sights_per_cell <- st_intersects(x = occupancies, y = sights)
+sel_logical <- lengths(sights_per_cell) > 0
+occ_with_sights <- occupancies[sel_logical, ]
+plot(occ_with_sights["Occ"])
+```
 
-<!-- - Diverging palettes emphasise differences from some central reference point -->
-<!-- ```{r, echo=TRUE} -->
-<!-- tm_shape(occupancies) + tm_polygons("Occ_1200") +  -->
-<!--   tm_shape(cams) + tm_dots("Elevation", size = 0.5, palette = "PRGn") -->
-<!-- ``` -->
 
-<!-- --- -->
+## Grouped summarize
 
-<!-- ```{r, echo = FALSE, fig.height = 7} -->
-<!-- library(RColorBrewer) -->
-<!-- display.brewer.all() -->
-<!-- ``` -->
+```{r, message=FALSE, results='hide'}
+occupancies %>% group_by(Team) %>%
+  summarize(meanOcc = mean(Occ)) %>% head()
+```
 
-<!-- ---  -->
+---
 
-<!-- - faceting -->
-<!-- ```{r} -->
-<!-- tm_shape(occupancies) + -->
-<!--     tm_polygons(c("Occ_1200", "Team")) + -->
-<!--     tm_facets(sync = TRUE, ncol = 2) -->
-<!-- ``` -->
+Can also summarize geometries
 
-<!-- ## ggplot -->
+```{r, tidy=FALSE}
+occ_per_team <- occupancies %>% group_by(Team) %>%
+  summarize(meanOcc = mean(Occ),
+            geometry = st_union(geometry))
+plot(occ_per_team[1:12,"meanOcc"])
+```
 
-<!-- - `geom_sf` plots `sf` objects -->
-<!-- ```{r} -->
-<!-- ggplot() + geom_sf(data = occupancies)   -->
-<!-- ``` -->
+# Static maps
 
-<!-- --- -->
+## tmap
 
-<!-- - `geom_sf` plots `sf` objects -->
-<!-- ```{r} -->
-<!-- ggplot() + geom_sf(data = occupancies, aes(fill = Occ_1200))  -->
-<!-- ``` -->
+- similar syntax to ggplot2, tailored to maps
+- shape is a spatial object with class `sf`, `sp` or `raster`.
+```{r, fig.height = 2.5}
+map0 <- tm_shape(occupancies) + tm_fill()
+map1 <- tm_shape(occupancies) + tm_borders()
+tmap_arrange(map0, map1, nrow = 1)
+```
 
-<!-- --- -->
+---
 
-<!-- - Can plot multiple `sf` objects -->
-<!-- ```{r} -->
-<!-- ggplot() + geom_sf(data = occupancies, aes(fill = Occ_1200)) + -->
-<!--   geom_sf(data = cams, colour = "red")  -->
-<!-- ``` -->
+```{r}
+map2 <- tm_shape(occupancies) + tm_polygons()
+map3 <- tm_shape(occupancies) + tm_polygons("Occ")
+tmap_arrange(map2, map3, nrow = 1)
+```
 
-<!-- --- -->
+---
 
-<!-- - `scale_XXX_brewer` for discrete scales, `scale_XXX_distiller` for continuous scales -->
-<!-- ```{r} -->
-<!-- ggplot() + geom_sf(data = occupancies, aes(fill = Occ_1200)) + -->
-<!--   geom_sf(data = cams, aes(colour = Elevation)) + -->
-<!--   scale_colour_distiller(palette = "PRGn") -->
-<!-- ``` -->
+- Multiple layers per shape
+```{r}
+tm_shape(occupancies) +
+  tm_polygons("Occ") +
+  tm_text("Team", size = 0.4)
+```
 
-<!-- # Interactive maps -->
+---
 
-<!-- ## package `leaflet` -->
+- Multiple shapes
+```{r, fig.cap="Color settings are especially important for maps. Here use of the same palette obscures detail."}
+tm_shape(occupancies) + tm_polygons("Occ") +
+  tm_shape(sights) + tm_dots("Elevation", size = 0.5)
+```
 
-<!-- - provides an interface to the Leaflet JavaScript library -->
-<!-- - `leaflet()` makes a map object that can be piped to other leaflet functions -->
-<!-- ```{r} -->
-<!-- leaflet() %>% addTiles() -->
-<!-- ``` -->
+---
 
-<!-- --- -->
+- Sequential palettes are good for values that have natural ordering from low to high
+```{r, echo=TRUE}
+tm_shape(occupancies) + tm_polygons("Occ") +
+  tm_shape(sights) + tm_dots("Elevation", size = 0.5, palette = "BuGn")
+```
 
-<!-- - Set a starting origin and zoom level  -->
-<!-- ```{r} -->
-<!-- leaflet() %>% addTiles() %>% -->
-<!--   setView(lng = 94.1, lat = 47.4, zoom = 7) -->
-<!-- ``` -->
+---
 
-<!-- --- -->
+- Categorical palettes are best for data with no natural ordering
+```{r, echo=TRUE}
+tm_shape(occupancies) + tm_polygons("Occ") +
+  tm_shape(sights) + tm_dots("Mountain", size = 0.5, palette = "Set3")
+```
 
-<!-- - Set a starting origin and zoom level  -->
-<!-- ```{r} -->
-<!-- leaflet() %>% addTiles() %>% -->
-<!--   setView(lng = 94.1, lat = 47.4, zoom = 4) -->
-<!-- ``` -->
+---
 
-<!-- --- -->
+- Diverging palettes emphasise differences from some central reference point
+```{r, echo=TRUE}
+tm_shape(occupancies) + tm_polygons("Occ") +
+  tm_shape(sights) + tm_dots("Elevation", size = 0.5, palette = "PRGn")
+```
 
-<!-- - Various base map options with `addProviderTiles()` -->
-<!-- ```{r} -->
-<!-- leaflet() %>% addProviderTiles("Esri.WorldStreetMap") %>% -->
-<!--   setView(lng = 94.1, lat = 47.4, zoom = 4) -->
-<!-- ``` -->
+---
 
-<!-- --- -->
+```{r, echo = FALSE, fig.height = 7}
+library(RColorBrewer)
+display.brewer.all()
+```
 
-<!-- - Various base map options with `addProviderTiles()` -->
-<!-- ```{r} -->
-<!-- leaflet() %>% addProviderTiles("Esri.WorldImagery") %>% -->
-<!--   setView(lng = 94.1, lat = 47.4, zoom = 4) -->
-<!-- ``` -->
+---
 
-<!-- --- -->
+- faceting
+```{r,tidy = FALSE}
+tm_shape(occupancies) +
+  tm_polygons(c("Occ", "Team")) +
+  tm_facets(sync = TRUE, ncol = 2)
+```
 
-<!-- - `sf` objects can be passed as additional map layers -->
-<!-- - must be in lat/long format -->
-<!-- ```{r} -->
-<!-- ### <b>  -->
-<!-- leaflet(data = st_transform(occupancies, crs = 4326)) %>% -->
-<!--   ### </b>  -->
-<!--   addProviderTiles("Esri.WorldImagery") %>% -->
-<!--   addPolygons()  -->
-<!-- ``` -->
+## ggplot
 
-<!-- --- -->
+- `geom_sf` plots `sf` objects
+```{r}
+ggplot() + geom_sf(data = occupancies)
+```
 
-<!-- - Multiple map layers  -->
-<!-- ```{r} -->
-<!-- leaflet(data = st_transform(occupancies, crs = 4326)) %>% -->
-<!--   addProviderTiles("Esri.WorldImagery") %>% -->
-<!--   addPolygons() %>% -->
-<!--   ### <b>  -->
-<!--   addMarkers(data = st_transform(cams, crs = 4326)) -->
-<!--   ### </b> -->
-<!-- ``` -->
+---
 
-<!-- --- -->
+- `geom_sf` plots `sf` objects
+```{r}
+ggplot() + geom_sf(data = occupancies, aes(fill = Occ))
+```
 
-<!-- ```{r} -->
-<!-- ### <b>  -->
-<!-- pal <- colorNumeric("YlOrRd", domain = occupancies$Occ_1200) -->
-<!-- ### </b>  -->
-<!-- leaflet(st_transform(occupancies, crs = 4326)) %>%  -->
-<!--   addProviderTiles("Esri.WorldImagery") %>% -->
-<!--   addMarkers(data = st_transform(cams, crs = 4326)) %>% -->
-<!--   ### <b>  -->
-<!--   addPolygons(color = ~pal(Occ_1200), fillOpacity = 0.4) %>% -->
-<!--   addLegend(pal = pal, values = ~Occ_1200) %>% -->
-<!--   addMiniMap(position = "bottomleft") -->
-<!-- ### </b> -->
-<!-- ``` -->
+---
 
-<!-- # Further reading -->
+- Can plot multiple `sf` objects
+```{r, tidy = FALSE}
+ggplot() + geom_sf(data = occupancies, aes(fill = Occ)) +
+  geom_sf(data = sights, colour = "red")
+```
 
-<!-- ---  -->
+---
 
-<!-- - [Chapter 2](https://geocompr.robinlovelace.net/spatial-class.html) and [Chapter 8](https://geocompr.robinlovelace.net/adv-map.html) of Geocomputation with R -->
-<!-- - [sf vignette](https://cran.r-project.org/web/packages/sf/vignettes/sf1.html#reading_and_writing) -->
-<!-- - [tmap vignette](https://cran.r-project.org/web/packages/tmap/vignettes/tmap-getstarted.html) -->
+- `scale_XXX_brewer` for discrete scales, `scale_XXX_distiller` for continuous scales
+```{r, tidy = FALSE}
+ggplot() + geom_sf(data = occupancies, aes(fill = Occ)) +
+  geom_sf(data = sights, aes(colour = Elevation)) +
+  scale_colour_distiller(palette = "PRGn")
+```
+
+# Interactive maps
+
+## package `leaflet`
+
+- provides an interface to the Leaflet JavaScript library
+- `leaflet()` makes a map object that can be piped to other leaflet functions
+```{r}
+leaflet() %>% addTiles()
+```
+
+---
+
+- Set a starting origin and zoom level
+```{r}
+leaflet() %>% addTiles() %>%
+  setView(lng = 94.1, lat = 47.4, zoom = 7)
+```
+
+---
+
+- Set a starting origin and zoom level
+```{r, tidy = FALSE}
+leaflet() %>% addTiles() %>%
+  setView(lng = 94.1, lat = 47.4, zoom = 4)
+```
+
+---
+
+- Various base map options with `addProviderTiles()`
+```{r, tidy = FALSE}
+leaflet() %>% addProviderTiles("Esri.WorldStreetMap") %>%
+  setView(lng = 94.1, lat = 47.4, zoom = 4)
+```
+
+---
+
+- Various base map options with `addProviderTiles()`
+```{r, tidy = FALSE}
+leaflet() %>% addProviderTiles("Esri.WorldImagery") %>%
+  setView(lng = 94.1, lat = 47.4, zoom = 4)
+```
+
+---
+
+- `sf` objects can be passed as additional map layers
+- must be in lat/long format
+```{r, tidy = FALSE}
+### <b>
+leaflet(data = st_transform(occupancies, crs = 4326)) %>%
+  ### </b>
+  addProviderTiles("Esri.WorldImagery") %>%
+  addPolygons()
+```
+
+---
+
+- Multiple map layers
+```{r, tidy = FALSE}
+leaflet(data = st_transform(occupancies, crs = 4326)) %>%
+  addProviderTiles("Esri.WorldImagery") %>%
+  addPolygons() %>%
+  ### <b>
+  addMarkers(data = st_transform(sights, crs = 4326))
+### </b>
+```
+
+---
+
+```{r, tidy = FALSE}
+### <b>
+pal <- colorNumeric("YlOrRd", domain = occupancies$Occ)
+### </b>
+leaflet(st_transform(occupancies, crs = 4326)) %>%
+  addProviderTiles("Esri.WorldImagery") %>%
+  addMarkers(data = st_transform(sights, crs = 4326)) %>%
+  ### <b>
+  addPolygons(color = ~pal(Occ), fillOpacity = 0.4) %>%
+  addLegend(pal = pal, values = ~Occ) %>%
+  addMiniMap(position = "bottomleft")
+### </b>
+```
+
+## Further reading
+
+- [Chapter 2](https://geocompr.robinlovelace.net/spatial-class.html) and [Chapter 8](https://geocompr.robinlovelace.net/adv-map.html) of Geocomputation with R
+- [sf vignette](https://cran.r-project.org/web/packages/sf/vignettes/sf1.html#reading_and_writing)
+- [tmap vignette](https://cran.r-project.org/web/packages/tmap/vignettes/tmap-getstarted.html)
+- [leaflet tutorial](https://rstudio.github.io/leaflet/)
