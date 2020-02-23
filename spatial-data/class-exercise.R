@@ -4,6 +4,7 @@ library(sf)
 library(leaflet)
 
 # read in data on informal settlements in Cape Town
+# source: https://open.africa/dataset/city-of-cape-town-gis-data
 ct_inf <- st_read("spatial-data/data/informal.shp") 
 
 # read in data with quarter degree grid cells
