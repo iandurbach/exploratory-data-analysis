@@ -57,7 +57,7 @@ knitr::opts_chunk$set(linewidth=60)
 ## Vector data
 
 ```{r, echo = FALSE, fig.height=5}
-rsa_towns <- st_read("data/rsa_towns.shp", quiet = TRUE)
+rsa_towns <- st_read("data/towns_atlas.shp", quiet = TRUE)
 plot(st_geometry(rsa_towns))
 ```
 
@@ -308,9 +308,7 @@ Let's look at the CRS for the object we just created
 st_crs(lnd_sf)
 ```
 
-CRS's can be specified using
-+ an `epsg` code
-+ a `proj4string` definition
+CRS's can be specified using an `epsg` code *or* a `proj4string` definition
 
 ## CRSs in R
 
@@ -326,6 +324,12 @@ Read in a lat-long dataset
 
 ```{r}
 x_ll <- read.csv("data/confirmed-sightings.csv")
+head(x_ll)
+```
+
+## CRSs in R
+
+```{r}
 x_ll <- st_as_sf(x_ll, coords = c("Longitude", "Latitude"), crs = 4326)
 st_crs(x_ll)
 d_ll <- st_distance(x_ll[1,], x_ll[2,])
@@ -355,7 +359,7 @@ head(occupancies)
 
 ---
 
-```{r}
+```{r, fig.height=5}
 plot(st_geometry(occupancies))
 ```
 
@@ -465,7 +469,7 @@ plot(occ_with_sights["Occ"])
 
 ## Grouped summarize
 
-```{r, message=FALSE, results='hide'}
+```{r, message=FALSE}
 occupancies %>% group_by(Team) %>%
   summarize(meanOcc = mean(Occ)) %>% head()
 ```
@@ -555,7 +559,7 @@ display.brewer.all()
 ```{r,tidy = FALSE}
 tm_shape(occupancies) +
   tm_polygons(c("Occ", "Team")) +
-  tm_facets(sync = TRUE, ncol = 2)
+  tm_facets(ncol = 2)
 ```
 
 ## ggplot
