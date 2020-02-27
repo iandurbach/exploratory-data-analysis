@@ -1,0 +1,511 @@
+---
+title: "Exploring time series data"
+author: Lecture 17-18
+output: ioslides_presentation
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(fig.height=3.5,
+                      fig.align='center',
+                      tidy.opts=list(width.cutoff=60),
+                      tidy=TRUE, 
+                      warning = FALSE,
+                      message=FALSE)
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+library(tidyr)
+library(tsibble)
+library(feasts)
+library(brolgar)
+library(dygraphs)
+library(knitr)
+```
+
+```{r wrap-hook, echo=FALSE}
+# text wrapping for nice slides
+hook_output = knit_hooks$get('output')
+knit_hooks$set(output = function(x, options) {
+  # this hook is used only when the linewidth option is not NULL
+  if (!is.null(n <- options$linewidth)) {
+    x = knitr:::split_lines(x)
+    # any lines wider than n should be wrapped
+    if (any(nchar(x) > n)) x = strwrap(x, width = n)
+    x = paste(x, collapse = '\n')
+  }
+  hook_output(x, options)
+})
+knitr::opts_chunk$set(linewidth=60)
+```
+
+# Introducing dates, times <br /> and time series 
+
+## Date and time types and formats
+
+- Dates and times can be represented in different ways
+<br><br>
+- There are lots of different date and time formats 
+<br><br>
+- A date-time is a data type that includes a date and a time
+<br><br>
+- It can be frustrating getting your times into the right format
+<br><br>
+- I'll use R packages `lubridate` and `base`
+
+## Time series data
+
+- Events occurring sequentially through time can be thought of as time series
+<br><br>
+- These could be weather measurements, purchases, football match outcomes, even locations in space
+
+## In this lecture  
+
+- We will first go through different times of time and date classes
+<br><br>
+- Then we will do some visualisation and exploration of time series
+
+## Dates, times and date-times
+
+### Battle of the libraries: `base` vs `lubridate` 
+
+- in `base` R dates and date-times have a special class called `posixCT`
+  
+```{r}
+# date-time including time zone
+Sys.time()
+```
+
+```{r}
+# date in current time zone
+Sys.Date()
+```
+
+## Dates, times and date-times
+### Battle of the libraries: `base` vs `lubridate` 
+
+- `lubridate` is a tidyverse package
+- You can do what we did above using lubridate
+
+```{r}
+# date-time including time zone
+now()       # lubridate
+```
+
+```{r}
+# date in current time zone
+today()     # lubridate
+```
+
+## Reading in date information
+
+- This can be harder than it should be, especially when using tab- or comma-delimited formats
+
+```{r}
+wind_data <- read.csv("data/wind_direction.csv")
+head(wind_data, n=3)
+class(wind_data$Date)
+```
+
+## Changing the date format with `base`
+
+- As you can see, R thinks the date column is a factor
+- In `base` R you often need to specify the "Unix Epoch" <br /> 1970-01-01 in the origin argument
+
+```{r, tidy = FALSE}
+my_base_date <- as.Date(as.character(wind_data$Date), 
+                        tryFormats = c("%d-%m-%Y", "%d/%m/%Y"), 
+                        origin="1970-01-01")
+head(my_base_date, n=4) 
+class(my_base_date)
+```
+
+## Changing the date format with `lubridate`
+
+- `lubridate` syntax is intuitive and compact
+
+```{r}
+class(wind_data$Date)
+
+my_lbdt_date <- dmy(as.character(wind_data$Date))
+head(my_lbdt_date, n=4) 
+class(my_lbdt_date)
+```
+
+## Pitfalls
+
+- The `as.character` bit is important!
+
+```{r, tidy = FALSE}
+as.Date(wind_data$Date, 
+        format="%Y-%m-%d", tz="SAST", 
+        origin="1970-01-01")
+
+as.Date(as.character(wind_data$Date), 
+        format="%d/%m/%Y", tz="SAST", 
+        origin="1970-01-01")
+```
+
+## Pitfalls
+
+- If you tell R the object contains times it will make them up
+
+```{r}
+my_fake_dt <- as.POSIXct(my_lbdt_date, format= "%Y-%m-%d", 
+                                       tz="SAST", 
+                                       origin="1970-01-01 00:00:00")
+head(my_fake_dt, n=4)
+```
+
+## Pitfalls
+
+- You can't add a timezone to a date
+- Even if you do add it, like we did, it won't show up
+
+```{r, tidy=FALSE}
+my_base_date <- as.Date(as.character(wind_data$Date), 
+                        tryFormats = c("%d-%m-%Y", "%d/%m/%Y"), 
+                        origin="1970-01-01")
+head(my_base_date, n=4) 
+```
+
+## Pitfalls
+- Format mistakes
+- The format argument must match the *current* format of the date
+
+```{r}
+as.Date(as.character(wind_data$Date), 
+        format = "%Y-%m-%d", tz="SAST", 
+        origin="1970-01-01")
+```
+```{r, echo=TRUE, results='hide'}
+as.Date(as.character(wind_data$Date), 
+        format = "%Y/%m/%d", tz="SAST", 
+        origin="1970-01-01")
+```
+
+```{r, echo=FALSE}
+tt <- as.Date(as.character(wind_data$Date), 
+        format = "%Y/%m/%d", tz="SAST", 
+        origin="1970-01-01")
+head(tt, n=3)
+```
+
+## Many format options...
+
+```{r}
+ymd("2020-01-31")
+
+mdy("January 31st, 2020")
+
+dmy("31-Jan-2020")
+
+ymd(20200131)
+```
+
+## Date-times can also have lots of formats
+
+```{r}
+ymd_hms("2020-01-31 14:09:21")
+
+mdy_hm("01/31/2020 06:09")
+
+mdy_h("01/31/2020 06")
+```
+
+## Exercise 1
+
+In `01-ts-exercise.R`.
+
+Use the appropriate `lubridate` function to parse each of the following dates:
+
+```
+d1 <- "January 1, 2010"
+d2 <- "2015-Mar-07"
+d3 <- "06-Jun-2017"
+d4 <- c("August 19 (2015)", "July 1 (2015)")
+d5 <- "12/30/14" # Dec 30, 2014
+```
+
+## Time zones
+
+- You can specify a time zone up-front
+```{r}
+ymd_hms("2020-01-31 14:09:21", tz="Africa/Johannesburg")
+```
+ 
+- Or add it later
+```{r}
+mytime <- ymd_hms("2020-01-31 14:09:21")
+with_tz(mytime, tzone="Africa/Johannesburg")
+```
+
+## Once you have a date, time or <br /> date-time object
+- You can extract elements from it, like the date
+
+```{r}
+womensday <- ymd_hms("2020-08-09-12-30-30", tz="GMT"); womensday
+date(womensday); month(womensday)
+
+# Is it a leap year?
+leap_year(womensday)
+```
+
+## Once you have a date, time or <br /> date-time object
+- Or elements of the time
+
+```{r}
+hour(womensday); minute(womensday); second(womensday)
+```
+
+## Once you have a date, time or <br /> date-time object
+- Or elements of the calendar date
+
+```{r}
+mday(womensday); wday(womensday, label=TRUE); yday(womensday)
+```
+
+## You can also create datetimes <br /> from their components
+
+```{r}
+temp_data <- read.csv("data/temperature.csv")
+head(temp_data, n=3)
+```
+
+## You can also create datetimes <br /> from their components
+
+```{r}
+temp_data %>% 
+  select(Year, Month, Day, Hour, Minute, Second) %>% 
+  mutate(DateTime = make_datetime(Year, Month, Day, 
+                                  Hour, Minute, Second))
+```
+
+## Rounding dates
+- Sometimes you might want to round a date
+
+```{r}
+floor_date(now(), unit="minutes")
+ceiling_date(now(), unit="minutes")
+```
+
+## Exercise 2
+
+In `02-ts-exercise.R`.
+
+1. Open the `flights` dataset
+2. Use `make_datetime()` to combine the year, month, day, hour and minute variables into a single variable containing the departure time.
+3. Remove the variables you used to make up the departure variable.
+4. Make a line plot of the average departure delay within each hour of the day.
+
+## Time spans
+
+- Durations: exact number of seconds between events
+<br><br>
+- Periods: track clock time between events in human units like weeks and months 
+<br><br>
+- Intervals: have a start and an end point
+
+## Durations
+
+- Durations: a time span in exact number of seconds
+- Subtracting two dates can give confusing results
+- Durations only measure time in seconds
+
+How old is Kanye West?
+```{r}
+kw_age <- today() - ymd(19770608); kw_age
+as.duration(kw_age)
+```
+
+## Durations
+
+How old will Kanye West be next week?
+```{r}
+kw_age + dweeks(1)
+as.duration(kw_age + dweeks(1))
+```
+
+## Periods
+
+- Periods: accurately track clock time despite human time constructs like leap seconds, leap years and daylight savings 
+
+```{r}
+months(8) + days(12) + seconds(3)
+```
+
+## Intervals
+- Intervals: have a start and an end point
+
+```{r}
+# Create an interval in time
+lunch <- paste(as.character(today()), "12-30-05")
+lunchtime <- ymd_hms(lunch, tz="Africa/Johannesburg"); lunchtime
+time_since_lunch <- lubridate::interval(lunchtime, now()); time_since_lunch
+
+as.duration(time_since_lunch)
+```
+
+## Intervals
+- Intervals are made up of two dates
+
+```{r}
+# Access the start of an interval
+start <- int_start(time_since_lunch); start
+
+# Access the end point of an interval
+end <- int_end(time_since_lunch); end
+```
+
+## Exercise 3
+
+In `03-ts-exercise.R`.
+
+Write a function that given your birthday (as a date), returns how old you are in years.
+
+## Explorating time series through visualisation
+
+- Packages `tsibble`, `feasts`, `brolgar`, `dygraphs`
+- Datasets: 
+    - dolphin sightings at Cape Vidal, KZN
+    - wage data from the `brolgar` package
+    - purchase data from [Kaggle](https://www.kaggle.com/c/acquire-valued-shoppers-challenge)
+- What is a time series? 
+    - a list of numbers of interest, indexed by the times those numbers were recorded 
+    - there is a special type of dataframe in `R` for time series, a `tsibble`
+
+## Dolphin sightings
+ 
+- Hourly number of dolphin sightings
+
+```{r}
+load("data/hourly_dolphin_counts.RData")
+head(hourly_counts, n=5)
+```
+
+## Dolphin sightings
+ 
+- Weekly number of dolphin sightings
+- We only keep date to help us with plotting
+
+```{r}
+weekly_counts <- hourly_counts %>% 
+    mutate(week=week(datetime)) %>% group_by(week, location) %>%
+    summarise(sum_counts=sum(dolphin_counts),
+              sum_effort=sum(effort),
+              mean_sight=mean(sightability),
+              date=mean(datetime)); head(weekly_counts, n=3)
+```
+
+## From dataframe to `tsibble`
+
+```{r}
+weekly_counts <- as_tsibble(x = weekly_counts,
+                    key = location,
+                    index = week,
+                    regular = TRUE)
+head(weekly_counts)
+```
+
+## Plotting a time series
+
+```{r}
+weekly_counts %>%
+  ggplot(aes(x = date,
+             y = sum_counts)) + geom_line() +
+  ylab("Total weekly sightings") + xlab("Month") + 
+  facet_grid(~ location)
+```
+
+## Seasonal decomposition
+
+```{r}
+sdecomp <- weekly_counts %>%
+  model(STL(sum_counts ~ season())) %>%
+  components()
+
+autoplot(sdecomp) + xlab("Week")
+```
+
+## Exercise 4
+
+In `04-ts-exercise.R`.
+
+Use the tools above to see if there are more purchases made on certain days of the week.
+
+## Individuals through time with `brolgar`
+
+- There is a dataset built into this package about wages
+
+```{r}
+head(wages)
+```
+ 
+## Individuals through time with `brolgar`
+
+- As you can see it's a `tsibble` and it was created like this
+
+```
+wages <- as_tsibble(x = wages,
+                    key = id,
+                    index = xp,
+                    regular = FALSE)
+```
+
+## Individuals through time with `brolgar`
+
+- Really nice functionality for exploring datasets composed of time series from many individuals or groupings, e.g., 
+
+  + individual humans or animals
+  + individual locations
+  + individual companies 
+  + individual sports teams
+  + ...
+
+## Sample a handful of time series
+
+```{r, tidy=FALSE}
+wages %>%
+  sample_n_keys(size = 5) %>%
+  ggplot(aes(x = xp, y = ln_wages, group = id)) + 
+  geom_line() + 
+  labs(y="Log(wage)", x="Experience (number of years)")
+```
+
+## Sample a handful of time series
+
+```{r, tidy=FALSE}
+ggplot(wages,
+       aes(x = xp, y = ln_wages, group = id)) +
+       geom_line() + facet_sample(n_per_facet = 3, n_facets = 6) +
+  labs(y="Log(wage)", x="Experience (number of years)")
+```
+
+## Exercise 5
+
+In `05-ts-exercise.R`.
+
+Repeat the analysis above for the `ChickWeight` dataset. Look for any interesting patterns in individual chicks.
+
+## Interactive time series plots
+
+```{r, tidy = FALSE}
+weekly_counts %>% dplyr::select(location, week, sum_counts) %>% 
+  pivot_wider(names_from = location, values_from = sum_counts) %>% 
+  dygraph() %>% dyOptions(stackedGraph = FALSE) %>%
+  dyRangeSelector(height = 20)
+```
+
+---
+
+```{r, tidy = FALSE}
+weekly_counts %>% dplyr::select(location, week, sum_counts) %>% 
+  pivot_wider(names_from = location, values_from = sum_counts) %>% 
+  dygraph() %>% dyOptions(stackedGraph = TRUE) %>%
+  dyRangeSelector(height = 20)
+```
+
+## Exercise 6
+
+In `06-ts-exercise.R`.
+
+Use the `dygraphs` package to create an interactive plot of weekly total purchases for each brand A, B, C, D
