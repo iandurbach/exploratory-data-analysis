@@ -1,0 +1,418 @@
+---
+title: "Interactive graphics and animation"
+author: Lectures 19-20
+output: ioslides_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height=3,
+                      fig.align='center',
+                      tidy.opts=list(width.cutoff=60),
+                      tidy=FALSE, 
+                      warning = FALSE,
+                      message = FALSE)
+library(dplyr)
+library(ggplot2)
+library(plotly)
+library(tidyr)
+library(sf)
+library(gapminder)
+library(rnaturalearth)
+library(gganimate)
+library(knitr)
+```
+
+```{r wrap-hook, echo=FALSE}
+# text wrapping for nice slides
+hook_output = knit_hooks$get('output')
+knit_hooks$set(output = function(x, options) {
+  # this hook is used only when the linewidth option is not NULL
+  if (!is.null(n <- options$linewidth)) {
+    x = knitr:::split_lines(x)
+    # any lines wider than n should be wrapped
+    if (any(nchar(x) > n)) x = strwrap(x, width = n)
+    x = paste(x, collapse = '\n')
+  }
+  hook_output(x, options)
+})
+knitr::opts_chunk$set(linewidth=60)
+```
+
+# Motivating example
+
+## Matric pass rates
+
+```{r, echo = FALSE, fig.height=5}
+matrics <- data.frame(
+  year = 2014:2018,
+  EC = c(65.4,56.8,59.3,65,70.6),
+  FS = c(82.8,81.6,88.2,86.1,87.5),
+  Gau = c(84.7,84.2,85.1,85.1,87.9),
+  KZN = c(69.7,60.7,66.4,72.9,76.2),
+  Lim = c(72.9,65.9,62.5,65.6,69.4),
+  Mpu = c(79,78.6,77.1,74.8,79),
+  NW = c(84.6,81.5,82.5,79.4,81.1),
+  NC = c(76.4,69.4,78.7,75.6,73.3),
+  WC = c(82.2,87.7,85.9,82.8,81.5)
+)
+
+matrics_long <- pivot_longer(matrics, cols = -1, names_to = "province", values_to = "pass_rate")
+
+# ggplot2 
+p <- matrics_long %>% 
+  ggplot(aes(x = year, y = pass_rate, colour = province)) +
+  geom_line() + geom_point() + 
+  scale_colour_brewer(palette = "Set3")
+p
+```
+
+## Making it interactive
+
+```{r, echo = FALSE, fig.height=5}
+p <- ggplotly(p)
+p
+```
+
+## Animating it
+
+```{r, echo=FALSE, out.width=700}
+ggplot(matrics_long, aes(year, pass_rate, group = province)) +
+  geom_line() +
+  geom_segment(aes(xend = 2018, yend = pass_rate), linetype = 2, colour = 'grey') +
+  geom_point(size = 2) +
+  geom_text(aes(x = 2018.1, label = province), hjust = 0) +
+  transition_reveal(year) +
+  coord_cartesian(clip = 'off') +
+  labs(title = 'Matric pass rates in SA', y = 'Pass rate (%)') +
+  theme_minimal()
+```
+
+# How does it work?
+
+## A slightly easier example
+
+```{r, tidy = FALSE}
+p <- diamonds %>% sample_n(1000) %>%
+  ggplot(aes(x = x, y = price)) + geom_point() +
+  labs(x = "Diamond width (x-dim)", y = "Price")
+p
+```
+
+## Make interactive with `plotly`
+
+`plotly` tries to guess the right plot type
+
+```{r, tidy = FALSE}
+diamonds %>% sample_n(1000) %>%
+  plot_ly(x = ~x, y = ~price)
+```
+
+## Make interactive with `plotly`
+
+Better to specify with `add_[plottype]`
+
+```{r, tidy = FALSE}
+diamonds %>% sample_n(1000) %>%
+  plot_ly(x = ~x, y = ~price) %>%
+  add_markers()
+```
+
+## Make interactive with `plotly`
+
+Styling options use `plotly` syntax
+
+```{r, tidy = FALSE}
+diamonds %>% sample_n(1000) %>%
+  plot_ly(x = ~x, y = ~price) %>%
+  add_markers(color = I("red")) %>%
+  layout(xaxis = list(title = "Diamond width (x-dim)"),
+         yaxis = list(title = "Price"))
+
+```
+
+## Make interactive with `plotly`
+
+"Aesthetic" options also use `plotly` syntax
+
+```{r, tidy = FALSE}
+diamonds %>% sample_n(1000) %>%
+  plot_ly(x = ~x, y = ~price, color = ~clarity, colors = "Set2") %>%
+  add_markers() %>%
+  layout(xaxis = list(title = "Diamond width (x-dim)"),
+         yaxis = list(title = "Price"))
+```
+
+## Exercise
+
+Open `03-ia-exercise.R`.
+
+Make the plot below interactive using `plotly`. Reproduce as much of the plot as you can (colours, titles, etc)
+
+```{r, echo=FALSE}
+diamonds %>% count(cut) %>%
+  ggplot(aes(x=cut, y=n)) + geom_bar(stat = "identity", fill = "red") +
+  ggtitle("Number of diamonds per cut category")
+```
+
+## The easy way with `ggplotly`
+
+Step 1: Make the `ggplot`
+
+```{r, eval = FALSE, tidy = FALSE}
+# with colour by clarity
+p <- diamonds %>% sample_n(1000) %>%
+  ggplot(aes(x = x, y = price, colour = clarity)) +
+  geom_point() + geom_smooth(se = FALSE) +
+  labs(x = "Diamond width (x-dim)", y = "Price") +
+  scale_color_brewer(palette = "Set2")
+p
+```
+
+## The easy way with `ggplotly`
+
+Step 1: Make the `ggplot`
+
+```{r, echo = FALSE}
+# with colour by clarity
+p <- diamonds %>% sample_n(1000) %>%
+  ggplot(aes(x = x, y = price, colour = clarity)) +
+  geom_point() + geom_smooth(se = FALSE) +
+  labs(x = "Diamond width (x-dim)", y = "Price") +
+  scale_color_brewer(palette = "Set2")
+p
+```
+
+## The easy way with `ggplotly`
+
+Step 2: `ggplotly` the ggplot!
+
+```{r}
+ggplotly(p)
+```
+
+## Exercise
+
+Open `02-ia-exercise.R`.
+
+Differences between clarity groups in the previous plot might be easier to see if we plot *densities* rather than all points. Replot the previous plot as a 2-D density plot, coloured by clarity, using the `geom_density2d` geom.
+
+## Interactive maps
+
+```{r, tidy=TRUE}
+# one of the plots we made in the previous lecture
+occupancies <- st_read("../spatial-data/data/Mongolia_SL.shp", quiet = TRUE)
+sights <- read.csv("../spatial-data/data/confirmed-sightings.csv")
+sights <- st_as_sf(sights, coords = c("Longitude", "Latitude"), crs = 4326) %>%
+  st_transform(sights, crs = "+proj=utm +zone=48 +datum=WGS84 +units=m +no_defs")
+
+p <- ggplot() + geom_sf(data = occupancies, aes(fill = Occ)) +
+  geom_sf(data = sights, aes(colour = Elevation)) +
+  scale_colour_distiller(palette = "PRGn") +
+  scale_fill_distiller(palette = "YlOrRd")
+```
+
+## Interactive maps
+
+```{r, echo = FALSE, fig.height=5}
+p
+```
+
+## Interactive maps
+
+```{r, echo = FALSE, fig.height=5}
+ggplotly(p)
+```
+
+# Animation
+
+## How does it work?
+
+Uses "frame" argument to index time
+```{r}
+df <- data.frame(x = runif(1000), y = runif(1000), f = 1:1000)
+p <- ggplot(df, aes(x, y)) + geom_point(aes(frame = f))
+p
+```
+
+## How does it work?
+
+No frame argument for `ggplot` but `ggplotly` knows what to do
+```{r}
+ggplotly(p)
+```
+
+## Back to matric pass rates
+
+```{r}
+p <- matrics_long %>%
+  ggplot(aes(x = year, y = pass_rate, colour = province)) +
+  geom_line(aes(frame = year)) + geom_point(aes(frame = year)) +
+  scale_colour_brewer(palette = "Set3")
+p
+```
+
+## Back to matric pass rates
+
+```{r}
+ggplotly(p)
+```
+
+## More advanced example
+
+```{r}
+pgap <- ggplot(
+  gapminder,
+  aes(x = gdpPercap, y=lifeExp, size = pop, colour = country)) +
+  geom_point(aes(frame = year), show.legend = FALSE, alpha = 0.7) +
+  scale_color_viridis_d() +
+  scale_size(range = c(2, 12)) +
+  scale_x_log10() +
+  labs(x = "GDP per capita", y = "Life expectancy")
+```
+
+## More advanced example
+
+```{r}
+pgap
+```
+
+## More advanced example
+
+```{r}
+ggplotly(pgap)
+```
+
+## Or with `gganimate` package
+
+```{r, out.width=700}
+pgap + transition_time(year) +
+  labs(title = "Year: {frame_time}")
+```
+
+## How does it work?
+
+Adds **transitions** - functions that determine how the plot data should be distributed over frames
+
++ `transition_time`
++ `transition_states`
++ `transition_reveal`
++ `transition_manual`
++ & others
+
+Uses **tweening** - calculates intermediate data for a smooth transition between the states
+
+**Easing** controls how these intermediate data are calculated (defaults to linear)
+
+## `transition_states`
+
+Transition between several *distinct stages* of the data
+
++ `states`: column with state levels.
++ `transition_length`: length of the transition between states.
++`state_length`:	length of the pause at the states.
++ `wrap = TRUE`: if TRUE the last state will be transitioned into the first.
+
+## `transition_states`
+
+```{r, out.width=700}
+pgap <- ggplot(
+  gapminder,
+  aes(x = gdpPercap, y=lifeExp, size = pop, colour = year)) +
+  geom_point(show.legend = FALSE, alpha = 0.7) +
+  scale_color_viridis_c() +
+  scale_size(range = c(2, 12)) +
+  scale_x_log10() +
+  labs(x = "GDP per capita", y = "Life expectancy") +
+  transition_states(continent) +
+  labs(title = "Continent: {closest_state}")
+```
+
+## `transition_states`
+
+Something not quite right
+```{r, echo=FALSE, out.width=700}
+pgap
+```
+
+## `transition_states`
+
+Need to add `group = continent` to `aes()`
+```{r, out.width=700}
+pgap2 <- ggplot(
+  gapminder,
+  aes(x = gdpPercap, y=lifeExp, size = pop, colour = year, group = continent)) +
+  geom_point(show.legend = FALSE, alpha = 0.7) +
+  scale_color_viridis_c() +
+  scale_size(range = c(2, 12)) +
+  scale_x_log10() +
+  labs(x = "GDP per capita", y = "Life expectancy") 
+```
+
+## `transition_states`
+
+```{r, echo=FALSE, out.width=700}
+pgap2 + transition_states(continent, 
+                          transition_length = 3,
+                          state_length = 3) +
+  labs(title = "Continent: {closest_state}") 
+```
+
+## `transition_reveal`
+
+Reveal data `along` a given dimension
+```{r, out.width=700}
+p <- ggplot(matrics_long, aes(year, pass_rate, group = province)) +
+  geom_line() +
+  geom_point(size = 2)
+p + transition_reveal(along = year)
+```
+
+## `transition_manual`
+
+Maps a variable to a specific frame in the animation, with no tweening of data.
+
+```{r, out.width=700}
+pgap + transition_manual(year) +
+  labs(title = "Year: {current_frame}")
+```
+
+## `transition_manual`
+
+```{r, out.width=700}
+pgap + transition_manual(year) +
+  labs(title = "Year: {current_frame}") +
+  facet_grid(~continent)
+```
+
+## Output and save animations
+
+```{r, out.width=700}
+animate(pgap, renderer = gifski_renderer(loop = TRUE))
+```
+
+```{r}
+# defaults to last animation if `animation` option not set
+anim_save(filename = "my_gap_gif.gif", animation = pgap)
+```
+
+## `gganimate` control settings
+
++ `transition_*()`: how data should change across time.
++ `view_*()`: how scales should change along the animation.
++ `shadow_*()`: how data from other points in time should be presented.
++ `enter_*()/exit_*()`: how new data should appear and how old data should disappear.
++ `ease_aes()`: how aesthetics should be eased during transitions.
+
+## Exercise
+
+Exercise `03-ia-exercise.R` takes you through various control settings for how `gganimate` plots transitions.
+
+Exercise `04-ia-exercise.R` illustrates a spatial version of the gapminder animations we made earlier, so that we can plot animations of e.g. changes in life expectancy on top of a map.
+
+## Additional resources
+
++ https://plot.ly/ggplot2/#animations
++ https://plotly-r.com/index.html
++ https://github.com/thomasp85/gganimate
++ https://cran.r-project.org/web/packages/gganimate/vignettes/gganimate.html
++ https://d4tagirl.com/2017/05/how-to-plot-animated-maps-with-gganimate
