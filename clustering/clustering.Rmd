@@ -1,6 +1,6 @@
 ---
 title: "Clustering"
-author: Lecture XX
+author: Lecture 21-22
 output: ioslides_presentation
 ---
 
@@ -15,6 +15,7 @@ library(ggplot2)
 library(stringr)
 library(imager)
 library(formatR)
+library(MASS)
 ```
 
 ```{r wrap-hook, echo=FALSE}
@@ -33,7 +34,7 @@ knit_hooks$set(output = function(x, options) {
 knitr::opts_chunk$set(linewidth=60)
 ```
 
-## Clustering
+## Movie ratings dataset
 
 ```{r}
 ratings <- readRDS(file = "data/movieratings.Rds")
@@ -57,7 +58,7 @@ axis(1, at = 0:29/29, names(ratings_wide)[-1], las = 3, cex.axis = 0.7)
 axis(2, at = 0:99/99, rownames(ratings_wide), cex.axis = 0.6)
 ```
 
-## Heatmaps
+## Heatmaps cluster rows and cols
 
 ```{r, echo = FALSE, fig.height=6}
 heat <- heatmap(as.matrix((ratings_wide[,-1])), 
@@ -98,7 +99,321 @@ ratings_mat <- as.matrix(ratings_wide[,-1])
 image(t(ratings_mat[row_ordering, col_ordering]))
 ```
 
-# How does it cluster?
+# Hierarchical clustering
+
+## How does hierarchical clustering work?
+
+```{r, echo=FALSE, fig.height=4, fig.width=4}
+x <- data.frame(pt = c(1,2,3,4,5,6),
+                x = c(1, 3.5, 3, 7, 7, 9),
+                y = c(1, 3.5, 2, 3.5, 8, 8))
+
+x %>% ggplot(aes(x,y)) + geom_point() + 
+  lims(x = c(0,10), y = c(0,10)) + coord_fixed()
+```
+
+## Distance matrix
+
+```{r,echo = FALSE, fig.height=2, fig.width=2}
+segs <- data.frame(x = 3.5, y = 3.5, xend = 7, yend = 8)
+x %>% ggplot(aes(x,y)) + geom_point() + 
+  lims(x = c(0,10), y = c(0,10)) + coord_fixed() +
+  geom_segment(data = segs, aes(x = x, y = y, xend = xend, yend = yend), colour = "red")
+```
+
+```{r}
+dist(x, method = "euclidean")
+```
+Smallest distance is between pt 2 and pt 3 (d = 1.87)
+
+## Distance matrix, different metric
+
+```{r,echo = FALSE, fig.height=2, fig.width=2}
+segs <- data.frame(x = c(3.5,3.5), y = c(3.5,8), xend = c(3.5,7), yend = c(8,8))
+x %>% ggplot(aes(x,y)) + geom_point() + 
+  lims(x = c(0,10), y = c(0,10)) + coord_fixed() +
+  geom_segment(data = segs, aes(x = x, y = y, xend = xend, yend = yend), colour = "red")
+```
+
+```{r}
+dist(x, method = "manhattan")
+```
+
+## Standardise variables if scales differ!
+
+```{r}
+x2 <- data.frame(var1 = c(10000, 20000, 5000), var2 = c(10,40,20))
+dist(x2)
+```
+
+```{r}
+dist(x2$var1)
+```
+
+## Merge pt 2 and 3 into a single cluster
+
+```{r, echo=FALSE, fig.height=4, fig.width=4}
+# smallest distance is between pt 2 and pt 3 (d = 1.87)
+
+cols <- c("1" = "red", "2" = "black", "3" = "blue")
+          
+x$colour1 <- c("2","1","1","2","2","2")
+
+x %>% ggplot(aes(x,y)) + geom_point(aes(colour = colour1)) + 
+  lims(x = c(0,10), y = c(0,10)) + coord_fixed() +
+  scale_discrete_manual(values = cols, aesthetics = "colour") +
+  theme_bw() + theme(legend.position = "none") 
+```
+
+## Recalculate distance matrix
+
+```{r, echo=FALSE, fig.height=4, fig.width=4}
+# recalculate distance matrix, need to work out distance from each remaining
+# point to the cluster we just made 
+
+xfrom <- x[2:3,2:3] 
+xto <- x[c(1,4:6), 2:3] %>% rename(xend = x, yend = y)
+
+segs <- cbind(apply(xfrom, 2, rep, times = 4), apply(xto, 2, rep, each = 2)) %>%
+  as.data.frame() %>%
+  mutate(cols_sl = c("2","1","2","1","2","1","2","1"),
+         cols_cl = c("1","2","1","2","1","2","1","2"))
+
+# single linkage (nearest distance)
+x %>% ggplot(aes(x,y)) + geom_point(aes(colour = colour1)) + 
+  lims(x = c(0,10), y = c(0,10)) + coord_fixed() +
+  scale_discrete_manual(values = cols, aesthetics = "colour") +
+  theme_bw() + theme(legend.position = "none") +
+  geom_segment(data = segs[1:2,], aes(x = x, y = y, xend = xend, yend = yend))
+
+```
+
+What is the "distance to a group of points"?
+
+## *Single linkage* 
+
+```{r, echo=FALSE, fig.height=4, fig.width=4}
+
+# single linkage (nearest distance)
+x %>% ggplot(aes(x,y)) + geom_point(aes(colour = colour1)) + 
+  lims(x = c(0,10), y = c(0,10)) + coord_fixed() +
+  scale_discrete_manual(values = cols, aesthetics = "colour") +
+  theme_bw() + theme(legend.position = "none") +
+  geom_segment(data = segs[1:2,], aes(x = x, y = y, xend = xend, yend = yend, colour = cols_sl))
+
+```
+
+... chooses the nearest distance
+
+## *Complete linkage* 
+
+```{r, echo=FALSE, fig.height=4, fig.width=4}
+# complete linkage (furthest distance)
+x %>% ggplot(aes(x,y)) + geom_point(aes(colour = colour1)) + 
+  lims(x = c(0,10), y = c(0,10)) + coord_fixed() +
+  scale_discrete_manual(values = cols, aesthetics = "colour") +
+  theme_bw() + theme(legend.position = "none") +
+  geom_segment(data = segs[1:2,], aes(x = x, y = y, xend = xend, yend = yend, colour = cols_cl))
+
+```
+
+... chooses the furthest distance
+
+## *Centroid linkage* 
+
+```{r, echo=FALSE, fig.height=4, fig.width=4}
+# centroid linkage (new pt)
+cent1 <- data.frame(x = mean(xfrom[,1]), y = mean(xfrom[,2]))
+segs_cent <- cbind(apply(cent1, 2, rep, times = 4), apply(xto, 2, rep, each = 1)) %>%
+  as.data.frame() %>%
+  mutate(cols_sl = c("1","1","1","1"))
+  
+x %>% ggplot(aes(x,y)) + geom_point(aes(colour = colour1)) + 
+  geom_point(data = cent1, shape = 2, size = 3, colour = "red") +
+  lims(x = c(0,10), y = c(0,10)) + coord_fixed() +
+  scale_discrete_manual(values = cols, aesthetics = "colour") +
+  theme_bw() + theme(legend.position = "none") +
+  geom_segment(data = segs_cent[1,], aes(x = x, y = y, xend = xend, yend = yend, colour = cols_sl))
+
+```
+
+... uses a new point to represent the cluster
+
+## One more example... 
+
+```{r, echo=FALSE, fig.height=4, fig.width=4}
+# single linkage (nearest distance)
+x %>% ggplot(aes(x,y)) + geom_point(aes(colour = colour1)) + 
+  lims(x = c(0,10), y = c(0,10)) + coord_fixed() +
+  scale_discrete_manual(values = cols, aesthetics = "colour") +
+  theme_bw() + theme(legend.position = "none") +
+  geom_segment(data = segs[3:4,], aes(x = x, y = y, xend = xend, yend = yend))
+```
+
+## One more example... 
+
+```{r, echo=FALSE, fig.height=4, fig.width=4}
+# single linkage (nearest distance)
+x %>% ggplot(aes(x,y)) + geom_point(aes(colour = colour1)) + 
+  lims(x = c(0,10), y = c(0,10)) + coord_fixed() +
+  scale_discrete_manual(values = cols, aesthetics = "colour") +
+  theme_bw() + theme(legend.position = "none") +
+  geom_segment(data = segs[3:4,], aes(x = x, y = y, xend = xend, yend = yend, colour = cols_cl))
+```
+
+Single linkage
+
+## One more example... 
+
+```{r, echo=FALSE, fig.height=4, fig.width=4}
+# complete linkage (furthest distance)
+x %>% ggplot(aes(x,y)) + geom_point(aes(colour = colour1)) + 
+  lims(x = c(0,10), y = c(0,10)) + coord_fixed() +
+  scale_discrete_manual(values = cols, aesthetics = "colour") +
+  theme_bw() + theme(legend.position = "none") +
+  geom_segment(data = segs[3:4,], aes(x = x, y = y, xend = xend, yend = yend, colour = cols_sl))
+```
+
+Complete linkage
+
+## One more example... 
+
+```{r, echo=FALSE, fig.height=4, fig.width=4}
+# centroid linkage (new pt)
+segs_cent <- cbind(apply(cent1, 2, rep, times = 4), apply(xto, 2, rep, each = 1)) %>%
+  as.data.frame() %>%
+  mutate(cols_sl = c("1","1","1","1"))
+
+x %>% ggplot(aes(x,y)) + geom_point(aes(colour = colour1)) + 
+  geom_point(data = cent1, shape = 2, size = 3, colour = "red") +
+  lims(x = c(0,10), y = c(0,10)) + coord_fixed() +
+  scale_discrete_manual(values = cols, aesthetics = "colour") +
+  theme_bw() + theme(legend.position = "none") +
+  geom_segment(data = segs_cent[2,], aes(x = x, y = y, xend = xend, yend = yend, colour = cols_sl))
+```
+
+Centroid linkage
+
+## Merge pt 5 and 6 into a single cluster
+
+```{r, echo=FALSE, fig.height=4, fig.width=4}
+# join next closest pair of points
+
+x$colour2 <- c("2", "1", "1", "2", "3", '3')
+
+x %>% ggplot(aes(x,y)) + geom_point(aes(colour = colour2)) + 
+  lims(x = c(0,10), y = c(0,10)) + coord_fixed() +
+  scale_discrete_manual(values = cols, aesthetics = "colour") +
+  theme_bw() + theme(legend.position = "none") 
+```
+
+## Recalculate distance matrix
+
+```{r, echo=FALSE, fig.height=4, fig.width=4}
+# recalculate distance matrix, need to work out distance from each remaining
+# point to the cluster we just made 
+
+xfrom <- x[5:6,2:3] 
+xto <- x[1:4, 2:3] %>% rename(xend = x, yend = y)
+
+segs <- cbind(apply(xfrom, 2, rep, times = 4), apply(xto, 2, rep, each = 2)) %>%
+  as.data.frame() %>%
+  mutate(cols_sl = c("2","2","1","2","2","2","2","2"),
+         cols_cl = c("2","2","2","2","2","1","2","2"))
+
+# single linkage (nearest distance)
+x %>% ggplot(aes(x,y)) + geom_point(aes(colour = colour2)) + 
+  lims(x = c(0,10), y = c(0,10)) + coord_fixed() +
+  scale_discrete_manual(values = cols, aesthetics = "colour") +
+  theme_bw() + theme(legend.position = "none") +
+  geom_segment(data = segs[3:6,], aes(x = x, y = y, xend = xend, yend = yend))
+```
+
+same idea -- need distance between (potentially) two groups of points
+
+## Single linkage
+
+```{r, echo=FALSE, fig.height=4, fig.width=4}
+x %>% ggplot(aes(x,y)) + geom_point(aes(colour = colour2)) + 
+  lims(x = c(0,10), y = c(0,10)) + coord_fixed() +
+  scale_discrete_manual(values = cols, aesthetics = "colour") +
+  theme_bw() + theme(legend.position = "none") +
+  geom_segment(data = segs[3:6,], aes(x = x, y = y, xend = xend, yend = yend, colour = cols_sl))
+```
+
+## Complete linkage
+
+```{r, echo=FALSE, fig.height=4, fig.width=4}
+x %>% ggplot(aes(x,y)) + geom_point(aes(colour = colour2)) + 
+  lims(x = c(0,10), y = c(0,10)) + coord_fixed() +
+  scale_discrete_manual(values = cols, aesthetics = "colour") +
+  theme_bw() + theme(legend.position = "none") +
+  geom_segment(data = segs[3:6,], aes(x = x, y = y, xend = xend, yend = yend, colour = cols_cl))
+```
+
+## Last step...
+
+```{r, echo=FALSE, fig.height=4, fig.width=4}
+
+x$colour3 <- c("1", "1", "1", "2", "3", '3')
+
+x %>% ggplot(aes(x,y)) + geom_point(aes(colour = colour3)) + 
+  lims(x = c(0,10), y = c(0,10)) + coord_fixed() +
+  scale_discrete_manual(values = cols, aesthetics = "colour") +
+  theme_bw() + theme(legend.position = "none") 
+
+```
+
+## Single linkage
+
+```{r, echo=FALSE, fig.height=4, fig.width=4}
+# recalculate distance matrix, need to work out distance from each remaining
+# point to the cluster we just made 
+
+xfrom <- x[4,2:3] 
+xto <- x[-4, 2:3] %>% rename(xend = x, yend = y)
+
+segs <- cbind(apply(xfrom, 2, rep, times = 5), apply(xto, 2, rep, each = 1)) %>%
+  as.data.frame() %>%
+  mutate(cols_sl = c("2","1","2","2","2"),
+         cols_cl = c("2","2","2","1","2"))
+
+x %>% ggplot(aes(x,y)) + geom_point(aes(colour = colour3)) + 
+  lims(x = c(0,10), y = c(0,10)) + coord_fixed() +
+  scale_discrete_manual(values = cols, aesthetics = "colour") +
+  theme_bw() + theme(legend.position = "none") +
+  geom_segment(data = segs[c(2,4),], aes(x = x, y = y, xend = xend, yend = yend, colour = cols_sl))
+```
+
+## Complete linkage
+
+```{r, echo=FALSE, fig.height=4, fig.width=4}
+x %>% ggplot(aes(x,y)) + geom_point(aes(colour = colour3)) + 
+  lims(x = c(0,10), y = c(0,10)) + coord_fixed() +
+  scale_discrete_manual(values = cols, aesthetics = "colour") +
+  theme_bw() + theme(legend.position = "none") +
+  geom_segment(data = segs[c(2,4),], aes(x = x, y = y, xend = xend, yend = yend, colour = cols_cl))
+```
+
+## Final single linkage allocation
+
+```{r, echo=FALSE, fig.height=4, fig.width=4}
+
+x$colour4 <- c("1", "1", "1", "1", "3", '3')
+
+x %>% ggplot(aes(x,y)) + geom_point(aes(colour = colour4)) + 
+  lims(x = c(0,10), y = c(0,10)) + coord_fixed() +
+  scale_discrete_manual(values = cols, aesthetics = "colour") +
+  theme_bw() + theme(legend.position = "none") 
+```
+
+## Hierarchical clustering algorithm
+
+1. Each observation starts in its own cluster
+
+2. While number of clusters > 1
++ Merge together the two clusters that are closest to one another
++ Update the distance matrix using one of the linkage rules (single, complete, centroid)
 
 ## Hierarchical clustering with `hclust`
 
@@ -124,7 +439,6 @@ hcl_centroid <- dist(ratings_wide[,-1]) %>% hclust(method = "centroid")
 plot(hcl_centroid)
 ```
 
-
 ## Where to cut?
 
 ```{r, echo=FALSE, fig.height=4.5}
@@ -138,6 +452,8 @@ user_clusters <- cutree(hcl_complete, h = 9)
 ratings_wide <- ratings_wide %>% mutate(user_clusters = user_clusters)
 table(ratings_wide$user_clusters)
 ```
+
+Always check cluster sizes
 
 ```{r, echo=FALSE}
 # for later
@@ -307,7 +623,147 @@ heatmap(as.matrix((ratings_bothclus[,-1])), scale = "none", margins = c(5, 5))
 
 # k-means clustering
 
----
+## How does k-means work?
+
+```{r, echo=FALSE, fig.height=4, fig.width=6}
+x <- data.frame(x = c(-5, -1, -2, -0.4, -1.5, 1, 2, 3, 2, 2, 4),
+                y = c(-1, -2, 3, 0.4, 2, -1.5, -0.5, -1.5, 0.5, 3, 1.5))
+
+cols <- c("red" = "red", "blue" = "blue")
+
+# plot raw pts
+x %>% ggplot(aes(x, y)) + geom_point() + 
+  coord_fixed(xlim = c(-6,6), ylim = c(-4,4)) + theme_bw() 
+```
+
+## Choose random initial centroids 
+
+```{r, echo=FALSE, fig.height=4, fig.width=6}
+# choose random initial centroids
+cents <- x[c(1,11), ]
+cents$col <- c("red", "blue")
+cents <- cents %>% arrange(col)
+
+# plot points with centroids
+x %>% ggplot(aes(x, y)) + geom_point() + 
+  geom_point(data = cents, aes(colour = col), size = 4, shape = 2) + 
+  scale_discrete_manual(values = cols, aesthetics = "colour") +
+  coord_fixed(xlim = c(-6,6), ylim = c(-4,4)) +
+  theme_bw() + theme(legend.position = "none") 
+```
+
+## Allocate points to clusters
+
+Each observation goes to the cluster with the closest centroid
+
+```{r, echo=FALSE, fig.height=4, fig.width=6}
+# calculate distance to each centroid
+x <- x %>% mutate(dist1 = (x - cents$x[1])^2 + (y - cents$y[1])^2,
+                  dist2 = (x - cents$x[2])^2 + (y - cents$y[2])^2,
+                  col1 = ifelse(dist1 < dist2, "blue", "red"))
+head(x)
+```
+
+## Allocate points to clusters
+
+```{r, echo=FALSE, fig.height=4, fig.width=6}
+# allocate each obs to nearest cluster
+x %>% ggplot(aes(x, y)) + geom_point(aes(colour = col1)) + 
+  geom_point(data = cents, aes(colour = col), size = 4, shape = 2) + 
+  scale_discrete_manual(values = cols, aesthetics = "colour") +
+  coord_fixed(xlim = c(-6,6), ylim = c(-4,4)) +
+  theme_bw() + theme(legend.position = "none") 
+```
+
+## Recalculate cluster centroids 
+
+```{r, echo=FALSE, fig.height=4, fig.width=6}
+# recalculate centroids
+cents <- x %>% group_by(col1) %>% summarize(x = mean(x), y = mean(y)) %>%
+  rename(col = col1)
+
+# plot points with centroids
+x %>% ggplot(aes(x, y)) + geom_point() + 
+  geom_point(data = cents, aes(colour = col), size = 4, shape = 2) + 
+  scale_discrete_manual(values = cols, aesthetics = "colour") +
+  coord_fixed(xlim = c(-6,6), ylim = c(-4,4)) +
+  theme_bw() + theme(legend.position = "none") 
+```
+
+## Allocate points to clusters
+
+```{r, echo=FALSE, fig.height=4, fig.width=6}
+# calculate distance to each centroid
+x <- x %>% mutate(dist1 = (x - cents$x[1])^2 + (y - cents$y[1])^2,
+                  dist2 = (x - cents$x[2])^2 + (y - cents$y[2])^2,
+                  col2 = ifelse(dist1<dist2, "blue", "red"))
+
+# allocate each obs to nearest cluster
+x %>% ggplot(aes(x, y)) + geom_point(aes(colour = col2)) + 
+  geom_point(data = cents, aes(colour = col), size = 4, shape = 2) + 
+  scale_discrete_manual(values = cols, aesthetics = "colour") +
+  coord_fixed(xlim = c(-6,6), ylim = c(-4,4)) +
+  theme_bw() + theme(legend.position = "none") 
+```
+
+## Recalculate cluster centroids 
+
+```{r, echo=FALSE, fig.height=4, fig.width=6}
+# recalculate centroids
+cents <- x %>% group_by(col2) %>% summarize(x = mean(x), y = mean(y)) %>%
+  rename(col = col2)
+
+# plot points with centroids
+x %>% ggplot(aes(x, y)) + geom_point() + 
+  geom_point(data = cents, aes(colour = col), size = 4, shape = 2) + 
+  scale_discrete_manual(values = cols, aesthetics = "colour") +
+  coord_fixed(xlim = c(-6,6), ylim = c(-4,4)) +
+  theme_bw() + theme(legend.position = "none") 
+```
+
+## Allocate points to clusters
+
+```{r, echo=FALSE, fig.height=4, fig.width=6}
+# calculate distance to each centroid
+x <- x %>% mutate(dist1 = (x - cents$x[1])^2 + (y - cents$y[1])^2,
+                  dist2 = (x - cents$x[2])^2 + (y - cents$y[2])^2,
+                  col3 = ifelse(dist1<dist2, "blue", "red"))
+
+# allocate each obs to nearest cluster
+x %>% ggplot(aes(x, y)) + geom_point(aes(colour = col3)) + 
+  geom_point(data = cents, aes(colour = col), size = 4, shape = 2) + 
+  scale_discrete_manual(values = cols, aesthetics = "colour") +
+  coord_fixed(xlim = c(-6,6), ylim = c(-4,4)) +
+  theme_bw() + theme(legend.position = "none") 
+```
+
+Continue until no change, or some convergence criterion met
+
+## k-means clustering algorithm
+
+1. Randomly choose *k* initial centroids
+
+2. While some convergence criterion not satisfied
++ Allocate each observation to the cluster whose centroid it is closest to
++ Recalculate cluster centroids
+<br><br>
++ A heuristic for minimizing the sum of within-cluster variances
++ Different random starts -> Different clusterings
++ How to choose *k*?
+
+## Choosing *k*
+
++ "By eye"
++ Plot % variance explained (between-cluster SS / total SS) against *k*
++ Cross validation
+    + Partition data into *m* parts. 
+    + For each of the *m* parts, 
+        + keep that part aside as test data,
+        + fit clustering model on the rest of the data, 
+        + calculate the sum of the squared distances to the centroids for the test set
+    + Choose the value of *k* that gives the best average performance
+
+## Back to the movies
 
 ```{r}
 df <- ratings_wide %>% dplyr::select_at(vars(-starts_with("user")))
@@ -329,7 +785,7 @@ kmeansObj$centers[,1:3]
 
 ## Plotting cluster means
 
-```{r}
+```{r, tidy=FALSE}
 # tidy for ggplot
 kmm <- kmeansObj$centers %>% as.data.frame() %>% 
   mutate(user_clus_km = paste0("clust",1:6)) %>%
@@ -351,22 +807,100 @@ kmm %>%
 table(user_clusters, kmeansObj$cluster)
 ```
 
-# Dimension reduction
+# Dimension reduction = clustering for variables
+
+## Principle components analysis
+
++ transforms a set of observations on possibly correlated variables into observations on a set of uncorrelated variables called principal components.
+<br><br>
++ transformation is chosen so each principal component has the largest possible variance subject to the constraint that it is orthogonal to any existing components.
+
+## Principle components analysis
+
++ observation $i$ on original variables $\mathbf{x}_i = (x_{i1},x_{i2},\dots,x_{in})$
+<br><br>
++ means for each variable over all observations $\mathbf{m} = (\bar{x}_{1},\bar{x}_{2},\dots,\bar{x}_{n})$
+<br><br>
++ PC1: linearly transformed observation $\mathbf{v}_1\mathbf{x}_i = (v_{11}x_{i1},v_{12}x_{i2},\dots,v_{1n}x_{in})$
+<br><br>
++ PC2: linearly transformed observation $\mathbf{v}_2\mathbf{x}_i = (v_{21}x_{i1},v_{22}x_{i2},\dots,v_{2n}x_{in})$
+<br><br>
++ etc
+
+## Principle components analysis
+
++ Choose coefficients for PC $j$ $\mathbf{v}_j$ to maximise $$\displaystyle\frac{1}{m-1}\sum_{i=1}^m(\mathbf{v}^T_j\mathbf{x}_i - \mathbf{v}^T_j\mathbf{m})^2$$
+
+subject to the constraint that $\mathbf{v}_j$ is orthogonal to all the previous $\mathbf{v}_j$'s i.e. $\mathbf{v}^T_j\mathbf{v}_k=0$ for $k<j$.
+
+## Geometric interpretation of PCA
+
+```{r, echo=FALSE}
+set.seed(123)
+```
+
+```{r}
+x <- mvrnorm(n = 1000, mu = c(0,0), Sigma = matrix(c(1,0.6,0.6,1), ncol = 2))
+plot(x[,1],x[,2], xlim = c(-5,5), ylim = c(-5,5))
+```
+
+## Geometric interpretation of PCA
+
+```{r, eval=FALSE}
+x <- mvrnorm(n = 1000, mu = c(0,0), Sigma = matrix(c(1,0.6,0.6,1), ncol = 2))
+plot(x[,1],x[,2], xlim = c(-5,5), ylim = c(-5,5))
+```
+
+```{r, echo=FALSE}
+set.seed(123)
+```
+
+```{r, echo=FALSE}
+x <- mvrnorm(n = 1000, mu = c(0,0), Sigma = matrix(c(1,0.6,0.6,1), ncol = 2))
+plot(x[,1],x[,2], xlim = c(-5,5), ylim = c(-5,5))
+abline(-3,1, col = "red")
+```
+
+## Geometric interpretation of PCA
+
+```{r}
+z <- prcomp(x)
+plot(z$x[,1], z$x[,2])
+```
+
+
+## Singular value decomposition
+
++ Decomposes an (m * n) matrix **X** into the product of
+    + an (m * m) matrix **U**
+    + an (m * n) diagonal matrix **D**
+    + an (n * n) matrix **V**
+<br><br>
++ **X** = **UDV^T^**
+<br><br>
++ Columns of **U** are *left-singular vectors*
++ Columns of **V** are *right-singular vectors*
++ Diagonal elements of **D** are *singular values*
 
 ## Dimension reduction = clustering for variables
+
++ SVD is not unique
+<br><br>
++ We choose the decomposition that gives the singular values in descending order (there is only one decomposition like this)
+<br><br>
++ PCs are equal to the right SVs if you scale the data to have mean 0 and sd 1
+
+---
 
 ```{r}
 # don't need to reorder rows and cols, but will make visualizing PCA easier
 ratings_scaled_ordered <- scale(ratings_mat)[hcl_row_ordering, hcl_col_ordering]
-
 # do the svd
 svd1 <- svd(ratings_scaled_ordered)
-
 # rename svd outputs
 u <- svd1$u
 v <- svd1$v
 d <- diag(svd1$d)
-
 # approximate original data with outer product of first singular vector
 approx1 <- u[,1] %*% matrix(d[1,1],nrow=1) %*% t(v[,1])
 ```
