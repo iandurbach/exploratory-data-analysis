@@ -10,3 +10,4 @@ assignments/*
 !clustering/data
 clustering/data/movielens-small.RData
 *.gif
+README.html
