@@ -4,3 +4,9 @@
 .Ruserdata
 */data
 */figs
+assignments/*
+!spatial-data/data
+!timeseries/data
+!clustering/data
+clustering/data/movielens-small.RData
+*.gif
