@@ -1,0 +1,68 @@
+---
+title: "Version control using Git and GitHub"
+output: ioslides_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height=5,
+                      fig.align='center',
+                      tidy.opts=list(width.cutoff=60),
+                      tidy=TRUE, 
+                      warning = FALSE)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(stringr)
+library(formatR)
+library(gridExtra)
+library(ggrepel)
+library(knitr)
+```
+
+```{r wrap-hook, echo=FALSE}
+# text wrapping for nice slides
+hook_output = knit_hooks$get('output')
+knit_hooks$set(output = function(x, options) {
+  # this hook is used only when the linewidth option is not NULL
+  if (!is.null(n <- options$linewidth)) {
+    x = knitr:::split_lines(x)
+    # any lines wider than n should be wrapped
+    if (any(nchar(x) > n)) x = strwrap(x, width = n)
+    x = paste(x, collapse = '\n')
+  }
+  hook_output(x, options)
+})
+knitr::opts_chunk$set(linewidth=60)
+```
+
+## Why use version control?
+
+<center>
+
+<img src="http://www.phdcomics.com/comics/archive/phd101212s.gif" height="500px">
+ 
+</center>
+
+## What is it? 
+
+The **management of changes** to documents, computer programs,  websites, etc...
+
+**Git**: free, open source version control software. Keeps track of all changes in a set of files (like a fancy "track changes"). Sits on your computer.
+
+**GitHub**: A website to store your Git repositories online. Makes it easy to share and collaborate with others. There are other hosting services out there.
+
+**Git client**: A helper application like a GUI that assists with Git functions and avoids having to use Git through the command line. We use the Git client built into RStudio.
+
+
+## Sources
+
+0. https://oliviergimenez.github.io/reproducible-science-workshop/
+1. http://happygitwithr.com/ 
+2. http://www-cs-students.stanford.edu/~blynn/gitmagic/
+3. https://www.atlassian.com/git/tutorials/resetting-checking-out-and-reverting
+4. https://github.com/blog/2019-how-to-undo-almost-anything-with-git
+5. https://guides.github.com/activities/forking/
+6. https://help.github.com/articles/fork-a-repo/
+7. https://help.github.com/articles/configuring-a-remote-for-a-fork/
+8. https://help.github.com/articles/syncing-a-fork/
+9. https://www.youtube.com/watch?v=u-kAeG4jkMA

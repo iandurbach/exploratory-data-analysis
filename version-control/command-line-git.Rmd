@@ -1,5 +1,5 @@
 ---
-title: "Version control with Git and GitHub"
+title: "Working with Git through the command line"
 author: ""
 date: ""
 output: html_document
@@ -10,50 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 #knitr::opts_knit$set(root.dir = "")
 ```
 
-# Git and GitHub
-
-> The information in this section is a small part of Jenny Bryan's excellent [*Happy Git and GitHub for the userR*](http://happygitwithr.com/). More advanced material is [here](http://www-cs-students.stanford.edu/~blynn/gitmagic/).
-
-## Getting started 
-
-Git can do a lot of things, and this complexity can be overwhelming at first. I struggled (several times) to get a working understanding of version control with Git, so I've written this as the kind of very simple "how to" guide I would have liked to have had. If you already know how to use Git, or are more computer savvy than me, you might find it too elementary -- skip ahead as you see fit. 
-
-Here are two things to keep in mind when getting started:
-
-1. *Git*, *GitHub*, and a *Git client* go together. You need to know how to use them all (unless you plan on using the command line exclusively).
-2. Most of what we'll do requires only the basics of Git. You can pick up the rest later.
-
-Let's first look at how *Git*, *GitHub*, and a *Git client* fit together:
-
-**Git**: Git is a version control system -- a way of keeping track of changes to a file over time (like "track changes" in Microsoft Word, for example). Originally used for source code, Git is now used by data scientists to track a set of files associated with a project over time. Git calls the set of files a *repository*, and it can contain data files, code, documents.
-
-**GitHub**: Git is a program that lives on your computer. You could, if you wanted to, only ever use it locally to back-up your files. Most people though, use Git as a way to collaborate on projects, and share code and associated files. That needs some way of hosting Git-based projects on the internet, which is where *GitHub* comes in. GitHub is a web platform that hosts/stores Git-based projects. There are other hosting services out there, but we'll just focus on GitHub.
-
-**Git client**: Git can either be run through the command line or using a helper application like a GUI that assists with the process. The helper application is called a client. Some users prefer the command line, and indeed there are some things that can only be done through the command line, but when getting started the use of a client can be a huge help. The good news is that RStudio comes with an inbuilt Git client, which is enough for most of our needs.
-
-There are two "phases" to using R with GitHub:
-
-1. *Setting up*. This involves installing Git, getting a GitHub account, connecting local Git with GitHub, and connecting RStudio with local Git. This can be a bit of a pain, but the good news is 
-    + you only need to do this once, 
-    + there are excellent instructions online (see the next section)
-    + I (or someone else) will provide help to get you set up, if needed.
-
-2. *Working with GitHub*. This basically just involves remembering to do two things:
-    + linking any new R projects to a GitHub repository
-    + periodically saving your changes ("committing") and uploading these onto GitHub ("pushing")
-
-We'll look at each of these in turn.
-
-## Setting everything up 
-
-This is really difficult to do in class -- inevitably there will be one or two problems but it is impossible to know what these will be, and troubleshooting them will take up valuable time. So, I've asked you to **please set up your system in advance** using the following steps:
-
-1. Follow the basic instruction steps [here](http://happygitwithr.com/workshops.html). These are the best instructions I've found and most common problems are covered.
-2. If you have trouble with any of the steps, send me an email or post to the forum and I (or others) will try to help.
-
-## An intro to working with Git through the command line
-
-We'll mainly use Git through RStudio, which offers a simple Git client. But first we'll introduce Git by using it on the command line. The following is a kind of minimal set of instructions that will showcase some of the basic Git functionality. I don't go into much detail here -- the idea is to discuss what's going on in class, and you can repeat the steps here later if you like.
+The following is a kind of minimal set of instructions that will showcase some of the basic Git functionality. I don't go into much detail here -- the idea is that you work through the steps below and see what is going on at each step. First read the document *Version control with Git and GitHub* and make sure you've followed all the setup steps there.
 
 ### Saving your work: git add, git commit
 1. Open the shell/terminal and cd to the directory you want to work in.
@@ -134,92 +91,6 @@ All of what we've done so far has involved local changes. Often you'll want to a
 10. Check the appropriate file(s) are on GitHub.
 
 If you ever want to remove a remote, use `git remote rm origin` (remember origin is just the name of the remote, your's might be different). If you want to point the remote to another URL use `git remote set-url origin <newURL>`.
-
-## Working with Git and GitHub through RStudio
-
-In this section we'll set up an R Project and link it to a GitHub repo. That will make it easy to push changes we make in RStudio to GitHub, from within RStudio.
-
-### Make a new repository on GitHub 
-Use the instructions above, except this time tick the box "Initialize this repository with a README". I called my project *data-sci-fi*; you can call yours whatever you like. 
-
-### Start a new R project in RStudio 
-
-We've done this step before, but this time we're going to link the new project to GitHub (we're cloning an empty GitHub repository).
-
-1. Start RStudio
-
-2. Under File, choose New Project and then Version Control and finally Git
-
-```{r, echo=FALSE, out.width="290px"}
-knitr::include_graphics("img/gitproj1.png")
-knitr::include_graphics("img/gitproj2.png")
-knitr::include_graphics("img/gitproj3.png")
-```
-
-3. Paste the URL you copied from GitHub at the end of the previous step into the "Repository URL" box. You can always log back into GitHub and find this URL if you need to.
-
-4. Give the project a directory name and choose where you want to create it. Think about where you want to create the project i.e. put it somewhere on your computer that makes sense, and that you won't want to change later on.
-
-5. Tick the "Open in new session" box
-
-6. Click "Create project"
-
-If everything works you should now see a screen like the one below: a brand new R project, as before, but one that is also linked to the remote GitHub repository you set up previously. 
-
-```{r, echo=FALSE, out.width="900px"}
-knitr::include_graphics("img/gittedproj.png")
-```
-
-### Do something 
-
-In this step you just "do something" you would usually do in R. For example:
-
-1. Use your browser or file manager (e.g. Windows Explorer, Finder) to browse to the project folder you just created. In this folder, create two new folders, one called "data" and another called "output". 
-
-2. Go back to RStudio and verify that the new folder and file has been detected.
-
-3. Open a new script file (Cmd/Ctrl + Shift + N) and type the following code in it:
-
-```{r, eval = FALSE}
-library(ggplot2)
-
-# create some data
-x <- runif(100)
-# save as RData file
-save(x, file = "data/randomnumbers.RData")
-
-# some workings
-y <- 2*x 
-mydata <- data.frame(y = y, x = x)
-xyplot <- ggplot(mydata, aes(x = x, y = y)) + geom_point()
-ggsave("output/xyplot.png", xyplot, width = 7, height = 6, dpi = 200)
-```
-
-4. Save the script file as "first-commit.R". Run the script file. Verify that both the script file, the data, and the output plot are saved in the project directory.
-
-### Commit the changes you just made
-
-Commiting saves changes locally -- like taking a snapshot of your files at a particular point in time. 
-
-1. In RStudio, click the "Git" tab. 
-
-```{r, echo=FALSE, out.width="900px"}
-knitr::include_graphics("img/commit.png")
-```
-
-2. Choose the files you want to commit by ticking the "Staged" box (for those you want to commit). Particularly early on, think about what you do and don't want to commit and push. Its advised to push source code that creates data and plots, rather than the data and plots themselves. Also, the way we are using GitHub, everything you push is publicly available, so you may not want to put your data or brilliant new idea up for all to see and use. Private repos are available and just cost a bit of money or additional time and effort to set up. Note though, that you can commit and push any file -- data, figures, as well as code.
-
-3. Click "Commit", which will open up a new pane. Here you'll be able to see any changes to existing files that you'll be committing. For now all the files are new, so there's nothing to see. For each commit, you need to add a "Commit message" in the text box provided. For now, type "first commit" or similar, and then click "Commit". 
-
-Your changes are now committed.
-
-### Push your local commits to GitHub 
-
-Pushing saves your changes on the remote repository. You'd always commit first, before pushing, so these steps start off at the end of a commit step, just after you click "Commit".
-
-1. Click the blue "Pull" tab. This checks that there is not a more recent copy of your files on GitHub. If you're working on your own this will obviously be the case, but if you are collaborating someone may have pushed their changes since you last pulled, and this can create conflicts. Pull-before-push is therefore a useful habit to get into. You should get a message saying "Already up-to-date". Close this window.
-
-2. Click the green "Push" tab. This will push your changes onto the GitHub repo. Once complete, you can close the window and the main pane you have been using. Go to your repo on GitHub, refresh the browser, and check that the changes have been uploaded. 
 
 ## Collaborating with others on GitHub
 
