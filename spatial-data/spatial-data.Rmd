@@ -284,8 +284,11 @@ lnd_sf
 
 + Longitude and latitude identify locations on the Earth's surface using two angles
 <br><br>
-+ Angles depend on the choice of the Earth's shape (sphere, ellipse)
+```{r,echo=FALSE,out.width=300}
+include_graphics("figs/latlong.png")
+```
 <br><br>
++ Angles depend on the choice of the Earth's shape
 + The shape is one part of a "coordinate reference system": the *datum* 
 
 ## CRSs and projections
@@ -301,8 +304,6 @@ lnd_sf
 + The projection is another part of the CRS
 
 ## CRSs in R
-
-Let's look at the CRS for the object we just created
 
 ```{r}
 st_crs(lnd_sf)
@@ -332,7 +333,13 @@ head(x_ll)
 ```{r}
 x_ll <- st_as_sf(x_ll, coords = c("Longitude", "Latitude"), crs = 4326)
 st_crs(x_ll)
+```
+
+## CRSs in R
+
+```{r}
 d_ll <- st_distance(x_ll[1,], x_ll[2,])
+d_ll
 ```
 
 ## Reprojecting 
@@ -342,6 +349,8 @@ x_utm <- st_transform(x_ll,
                       crs = "+proj=utm +zone=48 +datum=WGS84 +units=m +no_defs")
 st_crs(x_utm)
 ```
+
+## Reprojecting 
 
 ```{r}
 d_utm <- st_distance(x_utm[1,], x_utm[2,])
@@ -482,7 +491,7 @@ Can also summarize geometries
 occ_per_team <- occupancies %>% group_by(Team) %>%
   summarize(meanOcc = mean(Occ),
             geometry = st_union(geometry))
-plot(occ_per_team[1:12,"meanOcc"])
+plot(occ_per_team["meanOcc"])
 ```
 
 # Static maps

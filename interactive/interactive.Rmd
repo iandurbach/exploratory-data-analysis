@@ -1,6 +1,5 @@
 ---
 title: "Interactive graphics and animation"
-author: Lectures 19-20
 output: ioslides_presentation
 ---
 
@@ -144,7 +143,7 @@ diamonds %>% sample_n(1000) %>%
 
 ## Exercise
 
-Open `03-ia-exercise.R`.
+Open `01-ia-exercise.R`.
 
 Make the plot below interactive using `plotly`. Reproduce as much of the plot as you can (colours, titles, etc)
 

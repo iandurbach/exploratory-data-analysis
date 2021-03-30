@@ -58,7 +58,7 @@ There is *loads* of good material online about visualising data. This lecture co
 
 ## A few suggestions
 
-+ Show as much information as possible, within reason. 
++ Think about the points you want to make with your figure. Show as much information as possible, within reason. 
 <br><br>
 + Tweak guidelines for presentation medium (journal paper, presentation, magazine article, blog).
 <br><br>
@@ -118,24 +118,10 @@ include_graphics("figs/sharktrans_nocap.png")
 include_graphics("figs/suthy.png")
 ```
 
-## Amazing graphs (that I could never make)
+---
 
 ```{r,echo=FALSE,out.width=700}
 include_graphics("figs/dayton.png")
-```
-
----
-
-```{r,echo=FALSE,out.width=700}
-# All defaults
-include_graphics("figs/bremer_janssen.png")
-```
-
----
-
-```{r,echo=FALSE,out.width=700}
-# All defaults
-include_graphics("figs/bremer_phone.png")
 ```
 
 ## Tufte
@@ -401,10 +387,10 @@ matrics_long %>%
 
 Convey groups clearly -- colour, fill, facet
 
-```{r}
+```{r, tidy = TRUE}
 data("ChickWeight")
 ChickWeight <- ChickWeight %>% 
-  mutate(Week = factor(1 + round(Time/7)))
+  mutate(Week = factor(1 + floor((Time - 1)/7)))
 head(ChickWeight)
 ```
 
@@ -523,7 +509,7 @@ df <- data.frame(x = 1:500, y = log(1:500) + rnorm(100, 0, 0.4))
 
 df %>% ggplot(aes(x = x, y = y)) + 
   geom_point() +
-  xlim(0,400) + ylim(c(0, 30))
+  xlim(0,max(df$x)) + ylim(c(0, max(df$y)))
 ```
 
 ---

@@ -47,11 +47,13 @@ knitr::opts_chunk$set(linewidth=60)
 
 The **management of changes** to documents, computer programs,  websites, etc...
 
-**Git**: free, open source version control software. Keeps track of all changes in a set of files (like a fancy "track changes"). Sits on your computer.
+**Git**: free, open source version control software.
 
-**GitHub**: A website to store your Git repositories online. Makes it easy to share and collaborate with others. There are other hosting services out there.
+**GitHub**: A website to store your Git repositories online. 
 
-**Git client**: A helper application like a GUI that assists with Git functions and avoids having to use Git through the command line. We use the Git client built into RStudio.
+**Git client**: A helper application like a GUI that assists with Git functions. 
+
+We use the Git client built into RStudio.
 
 
 ## Sources
@@ -66,3 +68,9 @@ The **management of changes** to documents, computer programs,  websites, etc...
 7. https://help.github.com/articles/configuring-a-remote-for-a-fork/
 8. https://help.github.com/articles/syncing-a-fork/
 9. https://www.youtube.com/watch?v=u-kAeG4jkMA
+
+## Getting started
+
+1. Download and install [Git](https://git-scm.com/downloads).
+2. Create a [GitHub account](https://github.com/).
+3. Install R and RStudio (assumed done)

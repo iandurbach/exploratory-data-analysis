@@ -1,0 +1,60 @@
+---
+title: "Version control exercises"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Commit and push
+
+* Create a repository on GitHub, with a License (say MIT) and a Readme file. 
+
+* Clone it from RStudio (create a new project).
+
+* Update the Readme in RStudio by inserting a sentence of your choice.
+
+* Add a data folder and put a csv file in it
+
+* Add a script file that reads in the csv file and summarizes the variables in it.
+
+* Edit your .gitignore so that any .csv files are not tracked.
+
+* Stage the files and commit your changes. 
+
+* Push your changes. 
+
+* Go to your repository on GitHub and check out the changes. 
+
+* Is the Readme file modified? 
+
+* Where do you find the commits overview online?
+
+---
+
+## Resolve conflicts
+
+* Back in RStudio, modify the sentence in your Readme by inserting a word or two. 
+
+* Commit but do not push yet.
+
+* Now go on GitHub and modify the sentence by deleting a word or two. Commit. 
+
+* Back in RStudio, try to push your local change. You should get some error messages. You've generated a conflict haha. Let's resolve this conflict. 
+
+* From RStudio, pull to download the changes you made on GitHub. Git notices the conflict. The two Readme files with some clear markers to help you compare the two files. Decide which version of the code you'd like to keep, save and commit. Do not forget to push. 
+
+
+---
+
+## Participation points!
+
+* Sign up for a GitHub account ([1 point]
+
+* Fork the [course repository](https://github.com/iandurbach/exploratory-data-analysis) to your GitHub account. [1 point]
+
+* Replace the `goodpractice/goodpractice-exercises.R` script with one in which you've completed at least some of the exercises. Commit and push the changes to your repository. [2 points]
+
+* Paste the link to YOUR updated `goodpractice-exercises.R` file as a comment to the GitHub issue at https://github.com/iandurbach/exploratory-data-analysis/issues/3 [1 point]

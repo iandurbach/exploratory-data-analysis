@@ -1,6 +1,5 @@
 ---
-title: "Exploring time series data"
-author: Lecture 17-18
+title: "Exploring temporal data"
 output: ioslides_presentation
 ---
 
@@ -17,7 +16,9 @@ library(lubridate)
 library(tidyr)
 library(tsibble)
 library(feasts)
-library(brolgar)
+# library(remotes)
+# remotes::install_github("njtierney/brolgar")
+library(brolgar) # not on CRAN
 library(dygraphs)
 library(knitr)
 ```
@@ -60,7 +61,7 @@ knitr::opts_chunk$set(linewidth=60)
 
 ## In this lecture  
 
-- We will first go through different times of time and date classes
+- We will first go through different types of time and date classes
 <br><br>
 - Then we will do some visualisation and exploration of time series
 
@@ -164,7 +165,7 @@ head(my_fake_dt, n=4)
 ```{r, tidy=FALSE}
 my_base_date <- as.Date(as.character(wind_data$Date), 
                         tryFormats = c("%d-%m-%Y", "%d/%m/%Y"), 
-                        origin="1970-01-01")
+                        origin="1970-01-01",tz="SAST")
 head(my_base_date, n=4) 
 ```
 
@@ -333,6 +334,13 @@ as.duration(kw_age + dweeks(1))
 months(8) + days(12) + seconds(3)
 ```
 
+```{r}
+ymd("2020-01-01") + dyears(1)
+#> [1] "2016-12-31 06:00:00 UTC"
+ymd("2020-01-01") + years(1)
+#> [1] "2017-01-01"
+```
+
 ## Intervals
 - Intervals: have a start and an end point
 
@@ -420,7 +428,7 @@ weekly_counts %>%
 
 ```{r}
 sdecomp <- weekly_counts %>%
-  model(STL(sum_counts ~ season())) %>%
+  model(STL(sum_counts ~ trend())) %>%
   components()
 
 autoplot(sdecomp) + xlab("Week")
@@ -509,3 +517,10 @@ weekly_counts %>% dplyr::select(location, week, sum_counts) %>%
 In `06-ts-exercise.R`.
 
 Use the `dygraphs` package to create an interactive plot of weekly total purchases for each brand A, B, C, D
+
+## Reading
+
++ https://r4ds.had.co.nz/dates-and-times.html
++ https://cran.r-project.org/web/packages/feasts/vignettes/feasts.html
++ https://feasts.tidyverts.org/
++ https://www.njtierney.com/post/2019/08/13/introducing-brolgar/

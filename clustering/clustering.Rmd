@@ -1,6 +1,6 @@
 ---
 title: "Clustering"
-author: Lecture 21-22
+author: 
 output: ioslides_presentation
 ---
 
@@ -385,16 +385,6 @@ x %>% ggplot(aes(x,y)) + geom_point(aes(colour = colour3)) +
   geom_segment(data = segs[c(2,4),], aes(x = x, y = y, xend = xend, yend = yend, colour = cols_sl))
 ```
 
-## Complete linkage
-
-```{r, echo=FALSE, fig.height=4, fig.width=4}
-x %>% ggplot(aes(x,y)) + geom_point(aes(colour = colour3)) + 
-  lims(x = c(0,10), y = c(0,10)) + coord_fixed() +
-  scale_discrete_manual(values = cols, aesthetics = "colour") +
-  theme_bw() + theme(legend.position = "none") +
-  geom_segment(data = segs[c(2,4),], aes(x = x, y = y, xend = xend, yend = yend, colour = cols_cl))
-```
-
 ## Final single linkage allocation
 
 ```{r, echo=FALSE, fig.height=4, fig.width=4}
@@ -605,7 +595,7 @@ image(t(ratings_mat[hcl_row_ordering, hcl_col_ordering]), main = "Reordered both
 
 ## World's smallest heatmap
 
-```{r, echo=FALSE,fig.height=4.5}
+```{r, echo=FALSE,fig.height=4.5, message=FALSE, warning=FALSE}
 # merge in cluster memberships for users and movies
 ratings <- ratings %>% 
   left_join(user_clusters_df, by = "userId") %>% 
@@ -661,7 +651,7 @@ Each observation goes to the cluster with the closest centroid
 x <- x %>% mutate(dist1 = (x - cents$x[1])^2 + (y - cents$y[1])^2,
                   dist2 = (x - cents$x[2])^2 + (y - cents$y[2])^2,
                   col1 = ifelse(dist1 < dist2, "blue", "red"))
-head(x)
+x
 ```
 
 ## Allocate points to clusters
@@ -677,7 +667,7 @@ x %>% ggplot(aes(x, y)) + geom_point(aes(colour = col1)) +
 
 ## Recalculate cluster centroids 
 
-```{r, echo=FALSE, fig.height=4, fig.width=6}
+```{r, echo=FALSE, fig.height=4, fig.width=6, warning=FALSE, message=FALSE}
 # recalculate centroids
 cents <- x %>% group_by(col1) %>% summarize(x = mean(x), y = mean(y)) %>%
   rename(col = col1)
